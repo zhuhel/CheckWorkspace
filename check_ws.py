@@ -1,16 +1,23 @@
 #!/usr/bin/env python
 """
-plot the shape from workspace
+plot the shape from workspace, written in py2
 """
+
 import ROOT
 from optparse import OptionParser
 from ROOT import RooFit
+import math
+
+import numpy as np
 import os
 import sys
 
-import AtlasStyle
 from ploter import Ploter
+from adder import adder
 
+#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')))
+
+import root_utils as rtu
 
 class WSReader:
     def __init__(self, file_name, out_name, options):
@@ -29,6 +36,13 @@ class WSReader:
         # for plotting the histograms
         self.hist_list = []
         self.tag_list = []
+        if os.path.exists('correlation.root'):
+            f1 = ROOT.TFile.Open("correlation.root")
+            self.corr = f1.Get("correlation_matrix")
+            self.corr.SetDirectory(0)
+            f1.Close()
+            print "Correlation matrix is ready"
+            print self.corr.GetXaxis().GetNbins()
 
     def get_fit_name(self):
         if self.options.cond_fit:
@@ -48,17 +62,19 @@ class WSReader:
         return fitted_file_name
 
     def get_fix_var_name(self):
-        if self.options.poi is not None and len(self.options.poi) > 0:
+        if self.options.fixVar is not None:
             out = ""
-            for poi_str in self.options.poi:
-                name,value = poi_str.split(':')
-                out += name+value+"_"
+            for poi_str in self.options.fixVar.split(','):
+                # name,value = poi_str.split('=')
+                # out += name+value+"_"
+                out += "_".join(poi_str.split('='))
             return out
         else:
             return None
 
     def open_ws(self):
-        ##  decide with workspace to use
+        ##  decide which workspace to use
+        # if already fitted, reuse the existing workspace
         if self.options.after_fit and os.path.isfile(self.get_fitted_file_name()):
                 fin_fitted = ROOT.TFile.Open(self.get_fitted_file_name())
                 if fin_fitted:
@@ -70,7 +86,8 @@ class WSReader:
 
         ws = self.ws
         self.mc = ws.obj(self.options.mc_name)
-        self.simPdf = ws.obj(self.options.simpdfname)
+        #self.simPdf = ws.obj(self.options.simpdfname)
+        self.simPdf = self.mc.GetPdf()
         self.data = ws.obj(self.options.data_name)
         if not self.data:
             print self.options.data_name,"is not there"
@@ -81,7 +98,8 @@ class WSReader:
         if not self.poi:
             print "POI:", self.options.poi_name,"does not exit"
             exit(1)
-
+        else:
+            self.poi.Print()
 
         self.poi.setVal(self.options.sig_scale)
         self.observables = self.mc.GetObservables()
@@ -92,9 +110,9 @@ class WSReader:
             self.data_lists = self.data.split(self.categories, True)
 
     def fix_var(self):
-        if self.options.poi is not None and len(self.options.poi) > 0:
-            for poi_str in self.options.poi:
-                name,value = poi_str.split(':')
+        if self.options.fixVar:
+            for poi_str in self.options.fixVar.split(','):
+                name,value = poi_str.split('=')
                 obj = self.ws.var(name)
                 if obj:
                     print "set",name,"to",float(value)
@@ -158,7 +176,7 @@ class WSReader:
         nll.enableOffsetting(True)
         minim = ROOT.RooMinimizer(nll)
         minim.optimizeConst(2)
-        minim.setStrategy(1)
+        minim.setStrategy(2)
         #minim.setProfile()
         status = minim.minimize(
             "Minuit2",
@@ -174,12 +192,29 @@ class WSReader:
         if self.options.matrix:
             fit_res = minim.save()
             corr_hist = fit_res.correlationHist()
+            self.corr = corr_hist.Clone("corr")
+            self.corr.SetDirectory(0)
+
             self.ps.plot_correlation(corr_hist, self.out_name+"_correlation_matrix", 0.05)
             fout = ROOT.TFile.Open("correlation.root", 'recreate')
             corr_hist.Write()
             fit_res.SetName("nll_res")
             fit_res.Write()
             fout.Close()
+
+
+    def get_sys_for_NPs(self):
+        """
+        assuming all nuisance parameters are in best-fitted state...
+        Fix one of them each time, then evaluate the total bakcground yields
+        """
+        ##self.sys_dict = {}
+        self.sys_list = []
+        itr = self.mc.GetNuisanceParameters()
+        var = itr()
+        while var:
+            name = var.GetName()
+            error = var.getError()
 
     def redefine_range(self, obs_first):
         #obs_first = obs.first()
@@ -227,6 +262,8 @@ class WSReader:
         no_plot = options.no_plot
         yield_out_str = "\n"+self.fin.GetName()+"\n"
 
+        nuisances = self.mc.GetNuisanceParameters()
+
         while obj:
             del self.hist_list[:]
             del self.tag_list[:]
@@ -270,6 +307,34 @@ class WSReader:
             bonly_evts = pdf.expectedEvents(obs)
             if hist_bonly.Integral() > 1E-6:
                 hist_bonly.Scale(bonly_evts/hist_bonly.Integral())
+
+
+            # get background uncertainties
+            bkg_sys = 0
+            if self.corr:
+                sys_list = []
+                for ix in range(1, self.corr.GetXaxis().GetNbins()+1):
+                    name = self.corr.GetXaxis().GetBinLabel(ix)
+                    nom = self.ws.var(name).getVal()
+                    error = self.ws.var(name).getError()
+                    self.ws.var(name).setVal(nom + error)
+                    up_bkg = pdf.expectedEvents(obs)
+                    self.ws.var(name).setVal(nom - error)
+                    down_bkg = pdf.expectedEvents(obs)
+                    bkg_error = (up_bkg - down_bkg)/2.
+                    sys_list.append(bkg_error)
+                    self.ws.var(name).setVal(nom)
+
+                print "Total Variations: ", len(sys_list)
+                print sys_list
+                sys_np = np.array(sys_list)
+                correlation_matrix = rtu.TH2_to_numpy(self.corr)
+                total_bkg_sys = math.sqrt(np.matmul(sys_np.transpose(),
+                                                    np.matmul(correlation_matrix, sys_np.transpose())
+                                                   )
+                                         )
+                bkg_sys = total_bkg_sys/bonly_evts
+
 
             # get signal only spectrum
             if self.options.sigPDF:
@@ -326,8 +391,7 @@ class WSReader:
                             if m_debug:
                                 print "{} {:.2f}".format(func.GetName(), sum_ch)
                             yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
-
-                        yield_out_str += "total yields {:.2f} and observed {:.2f}\n".format(total, num_data)
+                        yield_out_str += "total yields {:.2f}\n".format(total)
                     else:
                         print "no baseline pdf avaiable!"
                         continue
@@ -345,16 +409,22 @@ class WSReader:
 
                 self.ps.prepare_2pad_canvas("canvas", 600, 600)
                 self.ps.pad2.cd()
+                self.ps.add_ratio_panel([hist_data, sum_bkg], "Data/MC", 0.50, 2.0)
+                # add uncertainty band for background...
+                if bkg_sys > 0:
+                    print "background systematic: ", bkg_sys
+                    gr = adder.add_band(sum_bkg, 1., bkg_sys, False)
+                    #gr.Print()
+                    gr.Draw("CF SAME")
 
-                self.ps.add_ratio_panel([hist_data, sum_bkg], "Data/MC", 0.55, 1.42)
+
                 self.ps.pad1.cd()
-
                 self.ps.get_offset(hist_splusb)
 
                 self.ps.set_y_range([hist_data, hist_splusb], options.is_logY)
                 #this_hist = self.ps.set_y_range(hist_data, hist_splusb, options.is_logY)
                 hist_data.SetXTitle(obs_var.GetName())
-                hist_data.SetYTitle("Events")
+                hist_data.SetYTitle("Events / 20 GeV")
 
                 if hist_data:
                     legend = self.ps.get_legend(len(self.hist_list) + 3)
@@ -383,7 +453,10 @@ class WSReader:
 
                 legend.Draw("same")
                 self.ps.add_atlas()
-                self.ps.add_lumi()
+                if "2017" in cat_name:
+                    self.ps.add_lumi(43.7)
+                else:
+                    self.ps.add_lumi(36.1)
                 out_plot_name = self.get_outplot_name(cat_name)
                 self.ps.can.SaveAs(out_plot_name+".pdf")
 
@@ -402,6 +475,16 @@ class WSReader:
 
         f_out.Close()
 
+    #def get_yields(self):
+    #    iter_category = ROOT.TIter(self.categories.typeIterator())
+    #    obj = iter_category()
+    #    total_signal = 0
+    #    total_bkg = 0;
+    #    total_data = 0
+    #    do_full_range = False
+
+    #    while obj:
+    #        obj = iter_category()
 
 if __name__ == "__main__":
     usage = "%prog [options] file_name out_name"
@@ -410,10 +493,10 @@ if __name__ == "__main__":
     parser.add_option("-w", "--wsname", dest='ws_name', default='combined')
     parser.add_option("-m", '--mcname', dest='mc_name', default='ModelConfig')
     parser.add_option("-d", '--dataname', dest='data_name', default='obsData', help="name of observed data")
-    parser.add_option("-s", '--simpdfname', dest='simpdfname', default='simPdf', help="name of simultaneous pdf")
-    parser.add_option("--fixVar", dest='poi', help="set variables as constant, such as mu:1", action="append")
-    parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
+    #parser.add_option("-s", '--simpdfname', dest='simpdfname', default='simPdf', help="name of simultaneous pdf")
     parser.add_option("--poi_name", dest='poi_name', help="name of POI", default="SigXsecOverSM")
+
+    parser.add_option("--fixVar", help="set variables as constant:  mu=1,lumi=1", default=None)
     parser.add_option("--noPlot", dest='no_plot', help="don't make plots", default=False, action="store_true")
     parser.add_option("--nBins", dest='n_bins', help="setup binning of the observable", default=10000, type="int")
     parser.add_option("--xMax", dest='x_max', help="max value of the observable", default=0, type="float")
@@ -422,10 +505,16 @@ if __name__ == "__main__":
     parser.add_option("--signalScale", dest='sig_scale', help="scale factor applied to data", default=10., type="float")
     parser.add_option("--afterFit", dest='after_fit', help="make plots and yields after fit", default=False, action="store_true")
     parser.add_option("--conditionalFit", dest='cond_fit', help="perform conditional fit", default=False, action="store_true")
+
     parser.add_option("--lumi", dest='lumi', help="which luminosity used",  default=36.1, type='float')
     parser.add_option("--sigPdfName", dest='sigPDF', help="signal pdf name",  default=None)
+    #parser.add_option("--nuis_val", help="nuisance value",  default=0., type='float')
+
     parser.add_option("--matrix", dest='matrix', help="plot covariance matrix",  default=False, action='store_true')
-    parser.add_option("--nuis_val", help="nuisance value",  default=0., type='float')
+    parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
+
+    # different functions...
+    parser.add_option("-y", '--yields', help="get_yields", action="store_true", default=False)
 
     (options,args) = parser.parse_args()
 
@@ -439,7 +528,12 @@ if __name__ == "__main__":
         out_name = "test"
 
     ROOT.gROOT.SetBatch()
+    import AtlasStyle
+
     ws_reader = WSReader(args[0], out_name, options)
     ws_reader.open_ws()
     ws_reader.fix_var()
-    ws_reader.loop_categories()
+    if options.yields:
+        ws_reader.get_yields()
+    else:
+        ws_reader.loop_categories()
