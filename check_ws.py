@@ -251,7 +251,8 @@ class WSReader:
 
     def loop_categories(self):
         m_debug = self.options.debug
-        f_out = ROOT.TFile.Open(self.out_name+"_histograms.root", "recreate")
+        #f_out = ROOT.TFile.Open(self.out_name+"_histograms.root", "recreate")
+        f_out = ROOT.TFile.Open(self.get_output_histogram_name(), "recreate")
 
         if self.options.after_fit:
             self.fit()
@@ -329,7 +330,7 @@ class WSReader:
                 print sys_list
                 sys_np = np.array(sys_list)
                 correlation_matrix = rtu.TH2_to_numpy(self.corr)
-                total_bkg_sys = math.sqrt(np.matmul(sys_np.transpose(),
+                total_bkg_sys = math.sqrt(np.matmul(sys_np,
                                                     np.matmul(correlation_matrix, sys_np.transpose())
                                                    )
                                          )
@@ -463,6 +464,7 @@ class WSReader:
             # start next category
             obj = iter_category()
             # save the histograms..
+            f_out.cd()
             hist_splusb.Write()
             if hist_data:
                 hist_data.Write()
