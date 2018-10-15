@@ -475,16 +475,6 @@ class WSReader:
 
         f_out.Close()
 
-    #def get_yields(self):
-    #    iter_category = ROOT.TIter(self.categories.typeIterator())
-    #    obj = iter_category()
-    #    total_signal = 0
-    #    total_bkg = 0;
-    #    total_data = 0
-    #    do_full_range = False
-
-    #    while obj:
-    #        obj = iter_category()
 
 if __name__ == "__main__":
     usage = "%prog [options] file_name out_name"
@@ -493,7 +483,6 @@ if __name__ == "__main__":
     parser.add_option("-w", "--wsname", dest='ws_name', default='combined')
     parser.add_option("-m", '--mcname', dest='mc_name', default='ModelConfig')
     parser.add_option("-d", '--dataname', dest='data_name', default='obsData', help="name of observed data")
-    #parser.add_option("-s", '--simpdfname', dest='simpdfname', default='simPdf', help="name of simultaneous pdf")
     parser.add_option("--poi_name", dest='poi_name', help="name of POI", default="SigXsecOverSM")
 
     parser.add_option("--fixVar", help="set variables as constant:  mu=1,lumi=1", default=None)
@@ -508,13 +497,9 @@ if __name__ == "__main__":
 
     parser.add_option("--lumi", dest='lumi', help="which luminosity used",  default=36.1, type='float')
     parser.add_option("--sigPdfName", dest='sigPDF', help="signal pdf name",  default=None)
-    #parser.add_option("--nuis_val", help="nuisance value",  default=0., type='float')
 
     parser.add_option("--matrix", dest='matrix', help="plot covariance matrix",  default=False, action='store_true')
     parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
-
-    # different functions...
-    parser.add_option("-y", '--yields', help="get_yields", action="store_true", default=False)
 
     (options,args) = parser.parse_args()
 
@@ -533,7 +518,4 @@ if __name__ == "__main__":
     ws_reader = WSReader(args[0], out_name, options)
     ws_reader.open_ws()
     ws_reader.fix_var()
-    if options.yields:
-        ws_reader.get_yields()
-    else:
-        ws_reader.loop_categories()
+    ws_reader.loop_categories()
