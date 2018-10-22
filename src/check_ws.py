@@ -43,6 +43,8 @@ class WSReader:
             f1.Close()
             print "Correlation matrix is ready"
             print self.corr.GetXaxis().GetNbins()
+        else:
+            self.corr = None
 
     def get_fit_name(self):
         if self.options.cond_fit:
@@ -396,6 +398,26 @@ class WSReader:
                     else:
                         print "no baseline pdf avaiable!"
                         continue
+
+            elif "RooAddPdf" in pdf.ClassName():
+                func_list = pdf.pdfList()
+                coeff_list = pdf.coefList()
+                total = 0
+                nevts_func = lambda k:coeff_list[k].getVal()
+                for func_index in sorted(
+                    range(func_list.getSize()), key=nevts_func,
+                    reverse=True
+                ):
+                    func = func_list[func_index]
+                    sum_ch = nevts_func(func_index)
+                    total += sum_ch
+                    if not no_plot and sum_ch > 1E-5:
+                        simple_name = func.GetName().split('_')[2]
+                        self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
+                    if m_debug:
+                        print "{} {:.2f}".format(func.GetName(), sum_ch)
+                        yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
+                    yield_out_str += "total yields {:.2f}\n".format(total)
 
             else:
                 print pdf.ClassName(),"should be RooProdPdf"
