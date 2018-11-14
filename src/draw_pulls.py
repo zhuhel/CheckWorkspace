@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from ploter import Ploter
+from adder import adder
 import ROOT
 ROOT.gROOT.SetBatch()
 import AtlasStyle
@@ -10,9 +11,11 @@ usage = "%prog [options]"
 version = "%prog 1.0"
 parser = OptionParser(usage=usage, description="check yields and shape for WS", version=version)
 parser.add_option("-m", '--message', dest='message', default='vvqq bkg')
+parser.add_option("-d", '--out_dir', dest='out_dir', default='.')
 (options,args) = parser.parse_args()
 
-f1 = ROOT.TFile.Open("correlation.root")
+corfile = options.out_dir + "/correlation.root"
+f1 = ROOT.TFile.Open(corfile)
 res = f1.Get("nll_res")
 
 fitted_list = res.floatParsFinal()
@@ -75,7 +78,7 @@ gr.Draw("P")
 dummy.Draw("same")
 dummy.Draw("Axis Same")
 
-ps.add_text(0.2, 0.88, 1, options.message)
+adder.add_text(0.2, 0.88, 1, options.message)
 
 can.SaveAs("pulls.pdf")
 

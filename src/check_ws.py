@@ -30,14 +30,16 @@ class WSReader:
         self.colors = [2, 4, 64, 206, 95, 28, 29, 209, 5, 8, 6, 432, 433, 434, 435, 436]
         self.plotted_id = 0
         self.conditional_snapshot_name = "unconditionalFit"
+        self.out_dir=self.options.out_dir
+        if not os.path.isdir(self.out_dir): os.makedirs(self.out_dir)
 
         self.ps = Ploter("Internal", options.lumi)
 
         # for plotting the histograms
         self.hist_list = []
         self.tag_list = []
-        if os.path.exists('correlation.root'):
-            f1 = ROOT.TFile.Open("correlation.root")
+        if os.path.exists(self.out_dir+'/correlation.root'):
+            f1 = ROOT.TFile.Open(self.out_dir+"/correlation.root")
             self.corr = f1.Get("correlation_matrix")
             self.corr.SetDirectory(0)
             f1.Close()
@@ -60,7 +62,7 @@ class WSReader:
         if fixed_names:
             file_name = fixed_names +file_name
 
-        fitted_file_name = self.get_fit_name()+"_"+file_name
+        fitted_file_name = self.out_dir+"/"+self.get_fit_name()+"_"+file_name
         return fitted_file_name
 
     def get_fix_var_name(self):
@@ -197,8 +199,8 @@ class WSReader:
             self.corr = corr_hist.Clone("corr")
             self.corr.SetDirectory(0)
 
-            self.ps.plot_correlation(corr_hist, self.out_name+"_correlation_matrix", 0.05)
-            fout = ROOT.TFile.Open("correlation.root", 'recreate')
+            self.ps.plot_correlation(corr_hist, self.out_dir+"/"+self.out_name+"_correlation_matrix", 0.05)
+            fout = ROOT.TFile.Open(self.out_dir+"/correlation.root", 'recreate')
             corr_hist.Write()
             fit_res.SetName("nll_res")
             fit_res.Write()
@@ -249,7 +251,7 @@ class WSReader:
         return name_
 
     def get_output_histogram_name(self):
-        return self.out_name+"_histograms.root"
+        return self.out_dir+"/"+self.out_name+"_histograms.root"
 
     def loop_categories(self):
         m_debug = self.options.debug
@@ -481,7 +483,7 @@ class WSReader:
                 else:
                     self.ps.add_lumi(36.1)
                 out_plot_name = self.get_outplot_name(cat_name)
-                self.ps.can.SaveAs(out_plot_name+".pdf")
+                self.ps.can.SaveAs(self.out_dir+"/"+out_plot_name+".pdf")
 
             # start next category
             obj = iter_category()
@@ -494,7 +496,7 @@ class WSReader:
                 hist.Write()
 
         print yield_out_str
-        with open("yield.log", 'a') as f:
+        with open(self.out_dir+"/yield.log", 'a') as f:
             f.write(yield_out_str)
 
         f_out.Close()
@@ -524,6 +526,7 @@ if __name__ == "__main__":
 
     parser.add_option("--matrix", dest='matrix', help="plot covariance matrix",  default=False, action='store_true')
     parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
+    parser.add_option("--out_dir", dest='out_dir', help="name of output directory", default=".")
 
     (options,args) = parser.parse_args()
 
