@@ -37,7 +37,7 @@ class WSReader:
         # for plotting the histograms
         self.hist_list = []
         self.tag_list = []
-        self.corr_root_path = os.join(self.out_dir, 'correlation.root')
+        self.corr_root_path = os.path.join(self.out_dir, 'correlation.root')
         if os.path.exists(corr_root_path):
             f1 = ROOT.TFile.Open(corr_root_path)
             self.corr = f1.Get("correlation_matrix")
@@ -199,7 +199,7 @@ class WSReader:
             self.corr = corr_hist.Clone("corr")
             self.corr.SetDirectory(0)
 
-            self.ps.plot_correlation(corr_hist, os.join(self.out_dir, self.out_name+"_correlation_matrix"), 0.05)
+            self.ps.plot_correlation(corr_hist, os.path.join(self.out_dir, self.out_name+"_correlation_matrix"), 0.05)
             fout = ROOT.TFile.Open(self.corr_root_path, 'recreate')
             corr_hist.Write()
             fit_res.SetName("nll_res")
@@ -251,7 +251,7 @@ class WSReader:
         return name_
 
     def get_output_histogram_name(self):
-        return os.join(self.out_dir, self.out_name+"_histograms.root")
+        return os.path.join(self.out_dir, self.out_name+"_histograms.root")
 
     def loop_categories(self):
         m_debug = self.options.debug
@@ -476,7 +476,7 @@ class WSReader:
                 else:
                     self.ps.add_lumi(36.1)
                 out_plot_name = self.get_outplot_name(cat_name)
-                self.ps.can.SaveAs(os.join(self.out_dir, out_plot_name+".pdf"))
+                self.ps.can.SaveAs(os.path.join(self.out_dir, out_plot_name+".pdf"))
 
             # start next category
             obj = iter_category()
@@ -489,7 +489,7 @@ class WSReader:
                 hist.Write()
 
         print yield_out_str
-        with open(os.join(self.out_dir, self.out_name+"_yield.log", 'a')) as f:
+        with open(os.path.join(self.out_dir, self.out_name+"_yield.log", 'a')) as f:
             f.write(yield_out_str)
 
         f_out.Close()
