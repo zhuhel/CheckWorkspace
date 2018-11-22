@@ -37,7 +37,7 @@ class WSReader:
         # for plotting the histograms
         self.hist_list = []
         self.tag_list = []
-        self.corr_root_path = os.join(self.out_dir, self.out_name+'_correlation.root')
+        self.corr_root_path = os.join(self.out_dir, 'correlation.root')
         if os.path.exists(corr_root_path):
             f1 = ROOT.TFile.Open(corr_root_path)
             self.corr = f1.Get("correlation_matrix")
