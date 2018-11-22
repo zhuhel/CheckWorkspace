@@ -6,6 +6,7 @@ A collection of scripts to check workspaces.
 source setup.sh
 ```
 
+* *draw_pulls.py* is to plot pull distributions of nuisance parameters
 * *print_np.py* is to print nuisance paramters and parameter of interest in the workspace
 * *check_ws.py* is to check the workspaces... A typical example to run the combined workspace of 4l+llvv is:
 
