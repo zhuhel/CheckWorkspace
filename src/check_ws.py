@@ -38,8 +38,8 @@ class WSReader:
         self.hist_list = []
         self.tag_list = []
         self.corr_root_path = os.path.join(self.out_dir, 'correlation.root')
-        if os.path.exists(corr_root_path):
-            f1 = ROOT.TFile.Open(corr_root_path)
+        if os.path.exists(self.corr_root_path):
+            f1 = ROOT.TFile.Open(self.corr_root_path)
             self.corr = f1.Get("correlation_matrix")
             self.corr.SetDirectory(0)
             f1.Close()
@@ -344,10 +344,9 @@ class WSReader:
             # get signal only spectrum
             hist_sonly = hist_splusb.Clone("signalOnly_"+cat_name)
             hist_sonly.Add(hist_bonly, -1)
-            self.hist_list.append(hist_sonly)
 
-            yield_out_str += "Signal(or rather non-background): {:.2f}\n".format(hist_sonly.integral())
 
+            self.poi.setVal(old_poi_val)
             if "RooProdPdf" in pdf.ClassName():
                 # break down each component for the PDF
                 pdf_list = pdf.pdfList()
@@ -383,10 +382,9 @@ class WSReader:
                             func = func_list[func_index]
                             sum_ch = nevts_func(func_index)
                             total += sum_ch
-                            if not no_plot and sum_ch > 1E-5:
+                            if not no_plot and sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                                 simple_name = func.GetName().split('_')[2]
-                                if "signal" not in simple_name.lower():
-                                    self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
+                                self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
                             yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
                         yield_out_str += "total yields {:.2f}\n".format(total)
                     else:
@@ -405,10 +403,9 @@ class WSReader:
                     func = func_list[func_index]
                     sum_ch = nevts_func(func_index)
                     total += sum_ch
-                    if not no_plot and sum_ch > 1E-5:
+                    if not no_plot and sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                         simple_name = func.GetName().split('_')[2]
-                        if "signal" not in simple_name.lower():
-                            self.get_hist(func, cat_name, obs_var, sum_ch, simple_name)
+                        self.get_hist(func, cat_name, obs_var, sum_ch, simple_name)
 
                     yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
                 yield_out_str += "total yields {:.2f}\n".format(total)
@@ -483,13 +480,14 @@ class WSReader:
             # save the histograms..
             f_out.cd()
             hist_splusb.Write()
+            hist_sonly.Write()
             if hist_data:
                 hist_data.Write()
             for hist in self.hist_list:
                 hist.Write()
 
         print yield_out_str
-        with open(os.path.join(self.out_dir, self.out_name+"_yield.log", 'a')) as f:
+        with open(os.path.join(self.out_dir, self.out_name+"_yield.log"), 'w') as f:
             f.write(yield_out_str)
 
         f_out.Close()
