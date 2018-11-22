@@ -37,8 +37,9 @@ class WSReader:
         # for plotting the histograms
         self.hist_list = []
         self.tag_list = []
-        if os.path.exists(self.out_dir+'/correlation.root'):
-            f1 = ROOT.TFile.Open(self.out_dir+"/correlation.root")
+        self.corr_root_path = os.join(self.out_dir, self.out_name+'_correlation.root')
+        if os.path.exists(corr_root_path):
+            f1 = ROOT.TFile.Open(corr_root_path)
             self.corr = f1.Get("correlation_matrix")
             self.corr.SetDirectory(0)
             f1.Close()
@@ -198,8 +199,8 @@ class WSReader:
             self.corr = corr_hist.Clone("corr")
             self.corr.SetDirectory(0)
 
-            self.ps.plot_correlation(corr_hist, self.out_dir+"/"+self.out_name+"_correlation_matrix", 0.05)
-            fout = ROOT.TFile.Open(self.out_dir+"/correlation.root", 'recreate')
+            self.ps.plot_correlation(corr_hist, os.join(self.out_dir, self.out_name+"_correlation_matrix"), 0.05)
+            fout = ROOT.TFile.Open(self.corr_root_path, 'recreate')
             corr_hist.Write()
             fit_res.SetName("nll_res")
             fit_res.Write()
@@ -250,7 +251,7 @@ class WSReader:
         return name_
 
     def get_output_histogram_name(self):
-        return self.out_dir+"/"+self.out_name+"_histograms.root"
+        return os.join(self.out_dir, self.out_name+"_histograms.root")
 
     def loop_categories(self):
         m_debug = self.options.debug
@@ -343,8 +344,10 @@ class WSReader:
             # get signal only spectrum
             hist_sonly = hist_splusb.Clone("signalOnly_"+cat_name)
             hist_sonly.Add(hist_bonly, -1)
+            self.hist_list.append(hist_sonly)
 
-            #self.poi.setVal(old_poi_val)
+            yield_out_str += "Signal(or rather non-background): {:.2f}\n".format(hist_sonly.integral())
+
             if "RooProdPdf" in pdf.ClassName():
                 # break down each component for the PDF
                 pdf_list = pdf.pdfList()
@@ -382,9 +385,8 @@ class WSReader:
                             total += sum_ch
                             if not no_plot and sum_ch > 1E-5:
                                 simple_name = func.GetName().split('_')[2]
-                                self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
-                            if m_debug:
-                                print "{} {:.2f}".format(func.GetName(), sum_ch)
+                                if "signal" not in simple_name.lower():
+                                    self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
                             yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
                         yield_out_str += "total yields {:.2f}\n".format(total)
                     else:
@@ -405,14 +407,15 @@ class WSReader:
                     total += sum_ch
                     if not no_plot and sum_ch > 1E-5:
                         simple_name = func.GetName().split('_')[2]
-                        self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
-                    if m_debug:
-                        print "{} {:.2f}".format(func.GetName(), sum_ch)
-                        yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
-                    yield_out_str += "total yields {:.2f}\n".format(total)
+                        if "signal" not in simple_name.lower():
+                            self.get_hist(func, cat_name, obs_var, sum_ch, simple_name)
+
+                    yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
+                yield_out_str += "total yields {:.2f}\n".format(total)
 
             else:
                 print pdf.ClassName(),"should be RooProdPdf"
+
 
             self.poi.setVal(old_poi_val)
 
@@ -473,7 +476,7 @@ class WSReader:
                 else:
                     self.ps.add_lumi(36.1)
                 out_plot_name = self.get_outplot_name(cat_name)
-                self.ps.can.SaveAs(self.out_dir+"/"+out_plot_name+".pdf")
+                self.ps.can.SaveAs(os.join(self.out_dir, out_plot_name+".pdf"))
 
             # start next category
             obj = iter_category()
@@ -486,7 +489,7 @@ class WSReader:
                 hist.Write()
 
         print yield_out_str
-        with open(self.out_dir+"/yield.log", 'a') as f:
+        with open(os.join(self.out_dir, self.out_name+"_yield.log", 'a')) as f:
             f.write(yield_out_str)
 
         f_out.Close()
