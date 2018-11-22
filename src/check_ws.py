@@ -15,7 +15,6 @@ import sys
 from ploter import Ploter
 from adder import adder
 
-#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')))
 
 import root_utils as rtu
 
@@ -342,17 +341,8 @@ class WSReader:
 
 
             # get signal only spectrum
-            if self.options.sigPDF:
-                pdf_name = self.options.sigPDF+"_"+cat_name+"_cbga"
-                sig_pdf = self.ws.obj(pdf_name.replace('Cat',''))
-                hist_sonly = ROOT.TH1F("sonly_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
-                hist_sonly = sig_pdf.createHistogram("sonly_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(False))
-                if hist_sonly.Integral() > 1E-6:
-                    hist_sonly.Scale((spb_evts-bonly_evts)/hist_sonly.Integral())
-                hist_sonly.SetLineColor(206)
-            else:
-                hist_sonly = hist_splusb.Clone("signalOnly_"+cat_name)
-                hist_sonly.Add(hist_bonly, -1)
+            hist_sonly = hist_splusb.Clone("signalOnly_"+cat_name)
+            hist_sonly.Add(hist_bonly, -1)
 
             #self.poi.setVal(old_poi_val)
             if "RooProdPdf" in pdf.ClassName():
@@ -522,7 +512,6 @@ if __name__ == "__main__":
     parser.add_option("--conditionalFit", dest='cond_fit', help="perform conditional fit", default=False, action="store_true")
 
     parser.add_option("--lumi", dest='lumi', help="which luminosity used",  default=36.1, type='float')
-    parser.add_option("--sigPdfName", dest='sigPDF', help="signal pdf name",  default=None)
 
     parser.add_option("--matrix", dest='matrix', help="plot covariance matrix",  default=False, action='store_true')
     parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
