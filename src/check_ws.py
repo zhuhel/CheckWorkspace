@@ -15,7 +15,6 @@ import sys
 from ploter import Ploter
 from adder import adder
 
-#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')))
 
 import root_utils as rtu
 
@@ -38,8 +37,9 @@ class WSReader:
         # for plotting the histograms
         self.hist_list = []
         self.tag_list = []
-        if os.path.exists(self.out_dir+'/correlation.root'):
-            f1 = ROOT.TFile.Open(self.out_dir+"/correlation.root")
+        self.corr_root_path = os.path.join(self.out_dir, 'correlation.root')
+        if os.path.exists(self.corr_root_path):
+            f1 = ROOT.TFile.Open(self.corr_root_path)
             self.corr = f1.Get("correlation_matrix")
             self.corr.SetDirectory(0)
             f1.Close()
@@ -199,8 +199,8 @@ class WSReader:
             self.corr = corr_hist.Clone("corr")
             self.corr.SetDirectory(0)
 
-            self.ps.plot_correlation(corr_hist, self.out_dir+"/"+self.out_name+"_correlation_matrix", 0.05)
-            fout = ROOT.TFile.Open(self.out_dir+"/correlation.root", 'recreate')
+            self.ps.plot_correlation(corr_hist, os.path.join(self.out_dir, self.out_name+"_correlation_matrix"), 0.05)
+            fout = ROOT.TFile.Open(self.corr_root_path, 'recreate')
             corr_hist.Write()
             fit_res.SetName("nll_res")
             fit_res.Write()
@@ -251,7 +251,7 @@ class WSReader:
         return name_
 
     def get_output_histogram_name(self):
-        return self.out_dir+"/"+self.out_name+"_histograms.root"
+        return os.path.join(self.out_dir, self.out_name+"_histograms.root")
 
     def loop_categories(self):
         m_debug = self.options.debug
@@ -342,19 +342,11 @@ class WSReader:
 
 
             # get signal only spectrum
-            if self.options.sigPDF:
-                pdf_name = self.options.sigPDF+"_"+cat_name+"_cbga"
-                sig_pdf = self.ws.obj(pdf_name.replace('Cat',''))
-                hist_sonly = ROOT.TH1F("sonly_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
-                hist_sonly = sig_pdf.createHistogram("sonly_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(False))
-                if hist_sonly.Integral() > 1E-6:
-                    hist_sonly.Scale((spb_evts-bonly_evts)/hist_sonly.Integral())
-                hist_sonly.SetLineColor(206)
-            else:
-                hist_sonly = hist_splusb.Clone("signalOnly_"+cat_name)
-                hist_sonly.Add(hist_bonly, -1)
+            hist_sonly = hist_splusb.Clone("signalOnly_"+cat_name)
+            hist_sonly.Add(hist_bonly, -1)
 
-            #self.poi.setVal(old_poi_val)
+
+            self.poi.setVal(old_poi_val)
             if "RooProdPdf" in pdf.ClassName():
                 # break down each component for the PDF
                 pdf_list = pdf.pdfList()
@@ -390,11 +382,9 @@ class WSReader:
                             func = func_list[func_index]
                             sum_ch = nevts_func(func_index)
                             total += sum_ch
-                            if not no_plot and sum_ch > 1E-5:
+                            if not no_plot and sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                                 simple_name = func.GetName().split('_')[2]
                                 self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
-                            if m_debug:
-                                print "{} {:.2f}".format(func.GetName(), sum_ch)
                             yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
                         yield_out_str += "total yields {:.2f}\n".format(total)
                     else:
@@ -413,16 +403,16 @@ class WSReader:
                     func = func_list[func_index]
                     sum_ch = nevts_func(func_index)
                     total += sum_ch
-                    if not no_plot and sum_ch > 1E-5:
+                    if not no_plot and sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                         simple_name = func.GetName().split('_')[2]
-                        self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
-                    if m_debug:
-                        print "{} {:.2f}".format(func.GetName(), sum_ch)
-                        yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
-                    yield_out_str += "total yields {:.2f}\n".format(total)
+                        self.get_hist(func, cat_name, obs_var, sum_ch, simple_name)
+
+                    yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
+                yield_out_str += "total yields {:.2f}\n".format(total)
 
             else:
                 print pdf.ClassName(),"should be RooProdPdf"
+
 
             self.poi.setVal(old_poi_val)
 
@@ -483,20 +473,21 @@ class WSReader:
                 else:
                     self.ps.add_lumi(36.1)
                 out_plot_name = self.get_outplot_name(cat_name)
-                self.ps.can.SaveAs(self.out_dir+"/"+out_plot_name+".pdf")
+                self.ps.can.SaveAs(os.path.join(self.out_dir, out_plot_name+".pdf"))
 
             # start next category
             obj = iter_category()
             # save the histograms..
             f_out.cd()
             hist_splusb.Write()
+            hist_sonly.Write()
             if hist_data:
                 hist_data.Write()
             for hist in self.hist_list:
                 hist.Write()
 
         print yield_out_str
-        with open(self.out_dir+"/yield.log", 'a') as f:
+        with open(os.path.join(self.out_dir, self.out_name+"_yield.log"), 'w') as f:
             f.write(yield_out_str)
 
         f_out.Close()
@@ -522,7 +513,6 @@ if __name__ == "__main__":
     parser.add_option("--conditionalFit", dest='cond_fit', help="perform conditional fit", default=False, action="store_true")
 
     parser.add_option("--lumi", dest='lumi', help="which luminosity used",  default=36.1, type='float')
-    parser.add_option("--sigPdfName", dest='sigPDF', help="signal pdf name",  default=None)
 
     parser.add_option("--matrix", dest='matrix', help="plot covariance matrix",  default=False, action='store_true')
     parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
