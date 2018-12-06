@@ -125,6 +125,18 @@ class WSReader:
                 else:
                     print name,"cannot be found"
 
+
+    def float_var(self):
+        if self.options.floatVar:
+            for name in self.options.floatVar.split(','):
+                obj = self.ws.var(name)
+                if obj:
+                    print "set", name, "float"
+                    obj.setConstant(False)
+                else:
+                    print name,"cannot be found"
+
+
     def get_hist(self, pdf, cat_name, obs, events, tag):
         #hist = pdf.createHistogram( "hist_"+tag, obs,
         #                          RooFit.Binning(obs.getBins(), obs.getMin(), obs.getMax()) )
@@ -503,6 +515,7 @@ if __name__ == "__main__":
     parser.add_option("--poi_name", dest='poi_name', help="name of POI", default="SigXsecOverSM")
 
     parser.add_option("--fixVar", help="set variables as constant:  mu=1,lumi=1", default=None)
+    parser.add_option("--floatVar", help="set variables float:  mu_ggF,mu_VBF", default=None)
     parser.add_option("--noPlot", dest='no_plot', help="don't make plots", default=False, action="store_true")
     parser.add_option("--nBins", dest='n_bins', help="setup binning of the observable", default=10000, type="int")
     parser.add_option("--xMax", dest='x_max', help="max value of the observable", default=0, type="float")
@@ -535,4 +548,5 @@ if __name__ == "__main__":
     ws_reader = WSReader(args[0], out_name, options)
     ws_reader.open_ws()
     ws_reader.fix_var()
+    ws_reader.float_var()
     ws_reader.loop_categories()
