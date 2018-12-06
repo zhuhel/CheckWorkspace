@@ -10,9 +10,31 @@ source setup.sh
 * *print_np.py* is to print nuisance paramters and parameter of interest in the workspace
 * *check_ws.py* is to check the workspaces... A typical example to run the combined workspace of 4l+llvv is:
 
+
+### Examples
+* prepare to run, assuming workspace is *workspace.root*, inside which signal POIs are *XS_ggF, XS_VBF*, 
+mass parameter *mH*.
+RooWorkspace name is *combined*, data is *obsData*.
 ```bash
-cd src
-python check_ws.py workspace.root bkg_only_fit -w combWS -d combData --poi_name XS_ggF --fixVar "XS_ggF=0,mH=500" --afterFit --matrix --conditionalFit --nBins 60
+mkdir run
+cd run
+```
+
+* Check expected number of signal and background events in the workspace at 500 GeV.
+```
+python ../src/check_ws.py workspace.root --out_dir numbers -w combined -d obsData --poi_name XS_ggF --fixVar "XS_VBF=0, mH=500" --nBins 60
+```
+* background-only fit, with correlation matrix
+```bash
+python ../src/check_ws.py workspace.root --out_dir bkg_only_fit -w combined -d obsData --poi_name XS_ggF --fixVar "XS_ggF=0,XS_VBF=0,mH=500" --afterFit --matrix --conditionalFit --nBins 60
+```
+* background-only fit, with qqZZ free. assuming qqZZ scaling factor is *mu_qqZZ*.
+```bash
+python ../src/check_ws.py workspace.roo --out_dir bkg_only_fit_qqZZFree -w combined -d obsData --poi_name XS_ggF --fixVar "XS_ggF=0,XS_VBF=0,mH=500" --floatVar "mu_qqZZ" --afterFit --matrix --conditionalFit --nBins 60
+```
+* signal+background fit
+```bash
+python ../src/check_ws.py workspace.roo --out_dir sig_plus_bkg_fit -w combined -d obsData --poi_name XS_ggF --fixVar "XS_VBF=0,mH=500" --afterFit --matrix --nBins 60
 ```
 
 To obtain full help:
@@ -33,6 +55,7 @@ Options:
                         name of observed data
   --poi_name=POI_NAME   name of POI
   --fixVar=FIXVAR       set variables as constant:  mu=1,lumi=1
+  --floatVar=FLOATVAR   set variables float:  mu_ggF,mu_VBF
   --noPlot              don't make plots
   --nBins=N_BINS        setup binning of the observable
   --xMax=X_MAX          max value of the observable
@@ -43,8 +66,8 @@ Options:
   --afterFit            make plots and yields after fit
   --conditionalFit      perform conditional fit
   --lumi=LUMI           which luminosity used
-  --sigPdfName=SIGPDF   signal pdf name
   --matrix              plot covariance matrix
   --debug               in debug mode
+  --out_dir=OUT_DIR     name of output directory
 ```  
  
