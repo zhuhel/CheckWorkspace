@@ -540,7 +540,7 @@ if __name__ == "__main__":
     if len(args) > 1:
         out_name = args[1]
     else:
-        out_name = "test"
+        out_name = "out"
 
     ROOT.gROOT.SetBatch()
     import AtlasStyle
