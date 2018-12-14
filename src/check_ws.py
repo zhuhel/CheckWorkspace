@@ -309,10 +309,8 @@ class WSReader:
             pdf.Print()
             hist_splusb = pdf.createHistogram("splusb_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(True))
             spb_evts = pdf.expectedEvents(obs)
-            print "spb_evts=", spb_evts, " integral=", hist_splusb.Integral()
             if hist_splusb.Integral() > 1E-6:
                 hist_splusb.Scale(spb_evts/hist_splusb.Integral())
-            print "splusb_scaled=", hist_splusb.Integral()
 
             hist_splusb.SetLineColor(206)
             print "nbins for s-plus-b:", hist_splusb.GetNbinsX()
@@ -324,10 +322,8 @@ class WSReader:
             hist_bonly = ROOT.TH1F("bonly_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
             hist_bonly = pdf.createHistogram("bonly_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(True))
             bonly_evts = pdf.expectedEvents(obs)
-            print "bonly_evts=", bonly_evts, " integral=", hist_bonly.Integral()
             if hist_bonly.Integral() > 1E-6:
                 hist_bonly.Scale(bonly_evts/hist_bonly.Integral())
-            print "bonly_scaled=", hist_bonly.Integral()
 
 
             # get background uncertainties
@@ -406,11 +402,7 @@ class WSReader:
 
                             ## signal pdf
                             if not no_plot and sum_ch > 1E-5 and "signal" in func.GetName().lower():
-                                print 'Signal yield: ', sum_ch
-                                print 'Signal: ', func.Print()
                                 hist_sonlypdf=self.get_hist_return(func, cat_name, obs_var, sum_ch, "", "Signal") ## the normalization is included in tags
-                                print 'Check signal hist', hist_sonlypdf
-                                hist_sonlypdf.Print()
 
 
                             yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
@@ -443,6 +435,7 @@ class WSReader:
 
 
             self.poi.setVal(old_poi_val)
+            hist_sonlypdf.SetLineColor(205)
 
             if not no_plot:
                 # make the plots
@@ -479,14 +472,15 @@ class WSReader:
                     hs.Draw("HIST same")
                     hist_data.Draw("AXISsame")
                     hist_data.Draw("EPsame")
-                    hist_sonly.Draw("HIST same")
+                    hist_sonlypdf.Draw("HIST same")
                 else:
                     legend = self.ps.get_legend(len(self.hist_list) + 2)
                     hist_splusb.Draw("HIST")
                     hs.Draw("HIST")
-                    hist_sonly.Draw("HIST same")
+                    hist_sonlypdf.Draw("HIST same")
 
-                legend.AddEntry(hist_sonly, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
+                #legend.AddEntry(hist_sonly, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
+                legend.AddEntry(hist_sonlypdf, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
                 legend.AddEntry(hist_splusb, "S({:.1f})+B {:.1f}" .format(self.poi.getVal(), hist_splusb.Integral()), "L")
                 sum_bkg.SetLineColor(0)
                 sum_bkg.SetFillColor(0)
