@@ -14,11 +14,12 @@ lsetup "root 6.08.06-HiggsComb-x86_64-slc6-gcc49-opt"
 PYTHONDIR=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/python/2.7.13-x86_64-slc6-gcc49/2.7.13-597a5/x86_64-slc6-gcc49-opt
 export PATH=${PYTHONDIR}/bin:$PATH
 # pip
-export PATH=$PATH:/afs/cern.ch/user/x/xju/public/python/bin
-export LD_LIBRARY_PATH="$PYTHONDIR/lib:$LD_LIBRARY_PATH"
+#export PATH=$PATH:/afs/cern.ch/user/x/xju/public/python/bin
+#export LD_LIBRARY_PATH="$PYTHONDIR/lib:$LD_LIBRARY_PATH"
 
 # additional lib.
-export PYTHONPATH=$PYTHONPATH:/afs/cern.ch/user/x/xju/public/python/lib/python2.7/site-packages/
+#export PYTHONPATH=$PYTHONPATH:$PYTHONDIR/lib:/afs/cern.ch/user/x/xju/public/python/lib/python2.7/site-packages/
+export PYTHONPATH=$PYTHONPATH:$PYTHONDIR:/afs/cern.ch/user/x/xju/public/python
 
 # increase stack size - needed for large workspaces
 ulimit -S -s unlimited
