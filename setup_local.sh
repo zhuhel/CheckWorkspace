@@ -9,7 +9,7 @@ currentDir=$PWD
 # ROOT and GCC
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 source $ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh
-asetup AnalysisBase,21.2.75
+asetup AnalysisBase,21.2.75,here
 
 # additional lib.
 export PYTHONPATH=/afs/cern.ch/user/x/xju/public/python2.7.15/lib/python2.7/site-packages:$PYTHONPATH

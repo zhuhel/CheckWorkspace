@@ -17,7 +17,7 @@ setup(
     install_requires=[
         "argparse",
         "numpy"
-    ]
+    ],
     scripts=[
         'scripts/check_ws',
     ]
