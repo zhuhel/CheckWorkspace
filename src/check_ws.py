@@ -400,6 +400,7 @@ class WSReader:
                             total += sum_ch
                             if not no_plot and sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                                 simple_name = func.GetName().split('_')[2]
+                                hist_name = 'hist'+cat_name+simple_name
                                 self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
 
                             ## signal pdf
