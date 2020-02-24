@@ -138,11 +138,12 @@ class WSReader:
 
 
     def get_hist(self, pdf, cat_name, obs, events, tag):
-        #hist = pdf.createHistogram( "hist_"+tag, obs,
-        #                          RooFit.Binning(obs.getBins(), obs.getMin(), obs.getMax()) )
         hist = pdf.createHistogram( "hist"+cat_name+tag, obs, RooFit.IntrinsicBinning(),
                                    RooFit.Extended(True))
         if hist.Integral() > 1E-6:
+            if hist.GetSumw2 is None:
+                hist.Sumw2(True)
+
             hist.Scale(events/hist.Integral())
         else:
             print hist.GetName(),"MISSING"
@@ -151,8 +152,6 @@ class WSReader:
         self.tag_list.append(tag)
 
     def get_hist_return(self, pdf, cat_name, obs, events, tag, hname):
-        #hist = pdf.createHistogram( "hist_"+tag, obs,
-        #                          RooFit.Binning(obs.getBins(), obs.getMin(), obs.getMax()) )
         hist = pdf.createHistogram( hname+"_"+cat_name+tag, obs, RooFit.IntrinsicBinning(),
                                    RooFit.Extended(True))
         if hist.Integral() > 1E-6:
@@ -231,18 +230,18 @@ class WSReader:
             fout.Close()
 
 
-    def get_sys_for_NPs(self):
-        """
-        assuming all nuisance parameters are in best-fitted state...
-        Fix one of them each time, then evaluate the total bakcground yields
-        """
-        ##self.sys_dict = {}
-        self.sys_list = []
-        itr = self.mc.GetNuisanceParameters()
-        var = itr()
-        while var:
-            name = var.GetName()
-            error = var.getError()
+    # def get_sys_for_NPs(self):
+    #     """
+    #     assuming all nuisance parameters are in best-fitted state...
+    #     Fix one of them each time, then evaluate the total bakcground yields
+    #     """
+    #     ##self.sys_dict = {}
+    #     self.sys_list = []
+    #     itr = self.mc.GetNuisanceParameters()
+    #     var = itr()
+    #     while var:
+    #         name = var.GetName()
+    #         error = var.getError()
 
     def redefine_range(self, obs_first):
         #obs_first = obs.first()
@@ -279,7 +278,6 @@ class WSReader:
 
     def loop_categories(self):
         m_debug = self.options.debug
-        #f_out = ROOT.TFile.Open(self.out_name+"_histograms.root", "recreate")
         f_out = ROOT.TFile.Open(self.get_output_histogram_name(), "recreate")
 
         if self.options.after_fit:
@@ -311,7 +309,7 @@ class WSReader:
             hist_data = None
             if self.data is not None:
                 data_ch = self.data_lists.At(obj.getVal())
-                num_data =  data_ch.sumEntries()
+                # num_data =  data_ch.sumEntries()
                 hist_data = ROOT.TH1F("data_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
                 hist_data.SetXTitle(obs_var.GetName())
                 data_ch.fillHistogram(hist_data, ROOT.RooArgList(obs_var))
@@ -333,8 +331,11 @@ class WSReader:
             self.poi.setVal(0.0)
             hist_bonly = ROOT.TH1F("bonly_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
             hist_bonly = pdf.createHistogram("bonly_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(True))
+            # hist_bonly = pdf.fillHistogram(hist_bonly, obs_var)
             bonly_evts = pdf.expectedEvents(obs)
             if hist_bonly.Integral() > 1E-6:
+                if hist_bonly.GetSumw2 is None:
+                    hist_bonly.Sumw2(True)
                 hist_bonly.Scale(bonly_evts/hist_bonly.Integral())
 
 
@@ -457,7 +458,8 @@ class WSReader:
 
                 self.ps.prepare_2pad_canvas("canvas", 600, 600)
                 self.ps.pad2.cd()
-                self.ps.add_ratio_panel([hist_data, sum_bkg], "Data/MC", 0.50, 2.0)
+                new_data_copy = hist_data.Clone("data_copy")
+                self.ps.add_ratio_panel([new_data_copy, sum_bkg], "Data/MC", 0.50, 2.0)
                 # add uncertainty band for background...
                 if bkg_sys > 0:
                     print "background systematic: ", bkg_sys
@@ -575,3 +577,4 @@ if __name__ == "__main__":
     ws_reader.fix_var()
     ws_reader.float_var()
     ws_reader.loop_categories()
+    
