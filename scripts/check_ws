@@ -2,6 +2,7 @@
 """
 plot the shape from workspace, written in py2
 """
+# from __future__ import print_function
 
 import ROOT
 from optparse import OptionParser
@@ -90,7 +91,6 @@ class WSReader:
 
         ws = self.ws
         self.mc = ws.obj(self.options.mc_name)
-        #self.simPdf = ws.obj(self.options.simpdfname)
         self.simPdf = self.mc.GetPdf()
         self.data = ws.obj(self.options.data_name)
         if not self.data:
@@ -107,7 +107,6 @@ class WSReader:
 
         self.poi.setVal(self.options.sig_scale)
         self.observables = self.mc.GetObservables()
-
 
         self.categories = self.simPdf.indexCat()
         if self.data is not None:
@@ -136,6 +135,17 @@ class WSReader:
                 else:
                     print name,"cannot be found"
 
+    @staticmethod
+    def create_hist_from_pdf(pdf, hist_name, obs):
+        hist = pdf.createHistogram(hist_name, obs, RooFit.IntrinsicBinning(), RooFit.Extended(True))
+        events = pdf.expectedEvents(ROOT.RooArgSet(obs))
+        if hist.Integral() > 1E-6:
+            if hist.GetSumw2 is None:
+                hist.Sumw2(True)
+            hist.Scale(events/hist.Integral())
+        else:
+            print(hist.GetName(), "MISSING")
+        return hist
 
     def get_hist(self, pdf, cat_name, obs, events, tag):
         hist = pdf.createHistogram( "hist"+cat_name+tag, obs, RooFit.IntrinsicBinning(),
@@ -143,13 +153,15 @@ class WSReader:
         if hist.Integral() > 1E-6:
             if hist.GetSumw2 is None:
                 hist.Sumw2(True)
-
             hist.Scale(events/hist.Integral())
+            for ibin in range(hist.GetNbinsX()):
+                hist.SetBinError(ibin+1, 1E-6)
         else:
-            print hist.GetName(),"MISSING"
+            print(hist.GetName(), "MISSING")
 
         self.hist_list.append(hist)
         self.tag_list.append(tag)
+
 
     def get_hist_return(self, pdf, cat_name, obs, events, tag, hname):
         hist = pdf.createHistogram( hname+"_"+cat_name+tag, obs, RooFit.IntrinsicBinning(),
@@ -230,19 +242,6 @@ class WSReader:
             fout.Close()
 
 
-    # def get_sys_for_NPs(self):
-    #     """
-    #     assuming all nuisance parameters are in best-fitted state...
-    #     Fix one of them each time, then evaluate the total bakcground yields
-    #     """
-    #     ##self.sys_dict = {}
-    #     self.sys_list = []
-    #     itr = self.mc.GetNuisanceParameters()
-    #     var = itr()
-    #     while var:
-    #         name = var.GetName()
-    #         error = var.getError()
-
     def redefine_range(self, obs_first):
         #obs_first = obs.first()
         obs_nbins = obs_first.getBins()
@@ -317,11 +316,7 @@ class WSReader:
             # get signal + background
             hist_splusb = ROOT.TH1F("splusb_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
             pdf.Print()
-            hist_splusb = pdf.createHistogram("splusb_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(True))
-            spb_evts = pdf.expectedEvents(obs)
-            if hist_splusb.Integral() > 1E-6:
-                hist_splusb.Scale(spb_evts/hist_splusb.Integral())
-
+            hist_splusb = self.create_hist_from_pdf(pdf, "splusb_"+cat_name, obs_var)
             hist_splusb.SetLineColor(206)
             print "nbins for s-plus-b:", hist_splusb.GetNbinsX()
 
@@ -330,14 +325,8 @@ class WSReader:
             print "OLD POI: " , old_poi_val
             self.poi.setVal(0.0)
             hist_bonly = ROOT.TH1F("bonly_"+cat_name, "data", obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
-            hist_bonly = pdf.createHistogram("bonly_"+cat_name, obs_var, RooFit.IntrinsicBinning(), RooFit.Extended(True))
-            # hist_bonly = pdf.fillHistogram(hist_bonly, obs_var)
-            bonly_evts = pdf.expectedEvents(obs)
-            if hist_bonly.Integral() > 1E-6:
-                if hist_bonly.GetSumw2 is None:
-                    hist_bonly.Sumw2(True)
-                hist_bonly.Scale(bonly_evts/hist_bonly.Integral())
-
+            hist_bonly = self.create_hist_from_pdf(pdf, "bonly_"+cat_name, obs_var)
+            bonly_evts = hist_bonly.Integral()
 
             # get background uncertainties
             bkg_sys = 0
@@ -411,6 +400,7 @@ class WSReader:
                             total += sum_ch
                             if not no_plot and sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                                 simple_name = func.GetName().split('_')[2]
+                                hist_name = 'hist'+cat_name+simple_name
                                 self.get_hist(func, cat_name, obs_var, sum_ch, simple_name) ## the normalization is included in tags
 
                             ## signal pdf
@@ -556,7 +546,7 @@ if __name__ == "__main__":
 
     parser.add_option("--matrix", dest='matrix', help="plot covariance matrix",  default=False, action='store_true')
     parser.add_option("--debug", dest='debug', help="in debug mode", action="store_true", default=False)
-    parser.add_option("--out_dir", dest='out_dir', help="name of output directory", default=".")
+    parser.add_option('-o', "--out_dir", dest='out_dir', help="name of output directory", default=".")
 
     (options,args) = parser.parse_args()
 

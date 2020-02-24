@@ -5,18 +5,19 @@ from __future__ import print_function
 from setuptools import find_packages
 from setuptools import setup
 
-description="A light script to check workspaces"
+description="Script to check workspaces"
 
 setup(
     name="checkws",
-    version="0.0.1",
+    version="0.1.0",
     description=description,
     author="Xiangyang Ju",
     packages=find_packages(),
     url='https://gitlab.cern.ch/xju/CheckWorkspace',
     install_requires=[
         "argparse",
-        "numpy"
+        "numpy",
+        'root_plot_utils@ https://github.com/xju2/root_plot_utils/tarball/v1.0.1',
     ],
     scripts=[
         'scripts/check_ws',
