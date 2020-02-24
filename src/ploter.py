@@ -87,11 +87,14 @@ class Ploter:
         self.totalObj.append(hist_list_cp)
 
         h_refer = hist_list_cp[0].Clone("Histreference")
-        h_refer.Sumw2()
+        if h_refer.GetSumw2 is None:
+            h_refer.Sumw2(True)
         self.totalObj.append(h_refer)
-        # print "REFER:", h_refer.Integral()
+
         for i, hist in enumerate(hist_list_cp):
-            hist.Sumw2()
+            if hist.GetSumw2 is None:
+                hist.Sumw2(True)
+
             if i==0:
                 hist.Divide(h_refer)
                 hist.SetFillColor(1)
@@ -129,7 +132,7 @@ class Ploter:
 
                 self.totalObj.append(this_hist)
                 #this_hist.Draw("HIST SAME")
-                this_hist.Draw("EP SAME")
+                this_hist.Draw("E SAME")
         adder.add_line(h_refer, 1.0)
 
 
@@ -304,16 +307,16 @@ class Ploter:
 
 
     def stack(self, hist_list):
-        hist_list_cp = [] # a list of non-data histograms
-        for hist in hist_list:
-            hist_list_cp.append( hist.Clone(hist.GetName()+"stackClone"))
-
+        hist_list_cp = [hist.Clone(hist.GetName()+"_stackClone") for hist in hist_list] # a list of non-data histograms
         self.totalObj.append(hist_list_cp)
 
         hist_sorted_list = sorted(hist_list_cp, key=lambda k:k.Integral())
         hs = ROOT.THStack("hs", "")
         hist_sum = None
         for hist in hist_sorted_list:
+            if hist.GetSumw2 is None:
+                hist.Sumw2(True)
+                
             hs.Add(hist)
             if hist_sum is None:
                 hist_sum = hist.Clone(hist.GetName()+"sumClone")
