@@ -35,7 +35,10 @@ def integral_and_error(hist):
     evts = hist.IntegralAndError(1, hist.GetNbinsX(), error)
     return (evts, error)
 
-def print_hist(hist):
-    evts, error = integral_and_error(hist)
-    out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+def print_hist(hist, add_sys):
+    if add_sys:
+        evts, error = integral_and_error(hist)
+        out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+    else:
+        out_str = "{:.2f}".format(hist.Integral())
     return out_str

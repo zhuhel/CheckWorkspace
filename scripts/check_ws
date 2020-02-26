@@ -53,12 +53,17 @@ if __name__ == "__main__":
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF')
 
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except:
+        parser.print_help()
+        exit(2)
 
     file_name = args.file_name
     out_dir = args.out_dir
     postfix = args.postfix
     verbose = args.verbose
+    add_bkg_sys = args.add_bkg_sys
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -104,7 +109,7 @@ if __name__ == "__main__":
     # obtained by changing all nuisance parameters +/- their error
     # in the nominal pre-fit case, the errors are zero, now corrected to be one.
     up_postfix, down_postfix = 'up', 'down'
-    if not args.add_bkg_sys:
+    if not add_bkg_sys:
         print("No systematic uncertainties on Background!")
     else:
         # get error of each NP and change them +/- 1 error
@@ -155,7 +160,7 @@ if __name__ == "__main__":
         exit(0)
 
     f_hist = ROOT.TFile(norm_hist_name)
-    if args.add_bkg_sys:
+    if add_bkg_sys:
         f_up = ROOT.TFile(up_hist_name)
         f_down = ROOT.TFile(down_hist_name)
 
@@ -169,7 +174,7 @@ if __name__ == "__main__":
             hist_name = '{}-{}-{}__{}'.format(mc, cat_name, postfix, obs_var.GetName())
             hist = f_hist.Get(hist_name)
             hist.SetDirectory(0)
-            if args.add_bkg_sys:
+            if add_bkg_sys:
                 # access up and down histograms and calculate the variations
                 hist_name = '{}-{}-{}__{}'.format(mc, cat_name, up_postfix, obs_var.GetName())
                 hist_up = f_up.Get(hist_name)
@@ -184,7 +189,7 @@ if __name__ == "__main__":
                     hist.SetBinError(ibin, error)
             else: ## add every small error
                 for ibin in range(hist.GetNbinsX()):
-                    hist.SetBinError(ibin+1, 0.1*hist.GetBinContent(ibin+1))
+                    hist.SetBinError(ibin+1, 1E-6)
 
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
@@ -246,12 +251,12 @@ if __name__ == "__main__":
 
         #legend.AddEntry(hist_sonly, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
         if hist_sonlypdf:
-            legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), print_hist(hist_sonly)), "L")
-        legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb)), "L")
-        legend.AddEntry(sum_bkg, "Total Bkg {}".format(print_hist(sum_bkg)), "F")
+            legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), print_hist(hist_sonly, add_bkg_sys)), "L")
+        legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
+        legend.AddEntry(sum_bkg, "Total Bkg {}".format(print_hist(sum_bkg, add_bkg_sys)), "F")
 
         for hist, tag in zip(hist_list, tag_list):
-            legend.AddEntry(hist, tag+" {}".format(print_hist(hist)), "F")
+            legend.AddEntry(hist, tag+" {}".format(print_hist(hist, add_bkg_sys)), "F")
 
         legend.Draw("same")
         ps.add_atlas()
@@ -261,6 +266,6 @@ if __name__ == "__main__":
         ps.can.SaveAs(os.path.join(ws_reader.out_dir, "{}.eps".format(cat_name)))   
 
     f_hist.Close()
-    if args.add_bkg_sys:
+    if add_bkg_sys:
         f_up.Close()
         f_down.Close()
