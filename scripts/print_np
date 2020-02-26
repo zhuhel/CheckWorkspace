@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+"""
+print nuisance parameters and parameter of interest in the workspace
+"""
+from __future__ import print_function
+import ROOT
+import os
+import argparse
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Print nuisance parameters")
+    add_arg = parser.add_argument
+    add_arg('file_name', help='input workspace')
+    add_arg("-w", "--wsname", default='combined')
+    add_arg("-m", '--mcname', default='ModelConfig')
+    add_arg("--no-np", action="store_true", help="Don't print NP")
+    args = parser.parse_args()
+
+    file_name = args.file_name
+    ws_name = args.wsname
+    mc_name = args.mcname
+    no_np = args.no_np
+
+    if not os.path.exists(file_name):
+        print(file_name, "not there")
+        exit(1)
+
+    fin = ROOT.TFile.Open(file_name)
+    if not fin:
+        print(args[0], "does not exist")
+        exit(2)
+
+    ws = fin.Get(ws_name)
+    if not ws:
+        print("cannot find workspace: ", ws_name)
+        exit(1)
+
+    mc = ws.obj(mc_name)
+    if not mc:
+        print("cannot find ModelConfig:", mc_name)
+
+    np_sets = mc.GetNuisanceParameters()
+    iter_np = ROOT.TIter(np_sets.createIterator())
+    obj = iter_np()
+    if not no_np:
+        n_stat_nps = 0
+        n_nps = 0
+        while obj:
+            if "gamma_stat" not in obj.GetName():
+                print(obj.GetName())
+                n_nps += 1
+            else:
+                n_stat_nps += 1
+            obj = iter_np()
+        if n_stat_nps > 0:
+            print("Total {} statistic uncertainties".format(n_stat_nps))
+        print("Total {} systematic uncertainties".format(n_nps))
+
+    mc.GetParametersOfInterest().Print()
+    mc.GetObservables().Print()
+    fin.Close()

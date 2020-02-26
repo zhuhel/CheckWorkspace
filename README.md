@@ -1,6 +1,9 @@
 # CheckWorkspace
 
 A collection of scripts to check workspaces.
+```
+pip install -e . --prefix=/afs/cern.ch/work/x/xju/Install/python2p7 --process-dependency-links
+```
 
 ```bash
 source setup.sh
