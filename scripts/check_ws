@@ -2,14 +2,14 @@
 """
 plot the shape from workspace, written in py2
 """
-# from __future__ import print_function
 
 from checkws.ws_reader import WSReader
 import os
 import argparse
 from checkws.root_utils import redefine_range
 from checkws.root_utils import print_hist
-from root_plot_utils.ploter import Ploter
+from checkws.ploter import Ploter
+from checkws import adder
 
 import ROOT
 ROOT.gROOT.SetBatch()
@@ -212,7 +212,9 @@ if __name__ == "__main__":
         ps.pad2.cd()
  
         new_data_copy = hist_data.Clone("data_copy")
+        data_band = adder.make_band(new_data_copy)
         ps.add_ratio_panel([new_data_copy, sum_bkg], "Data/MC", 0.50, 2.0)
+        data_band.Draw("F same")
 
         ps.pad1.cd()
         ps.get_offset(hist_splusb)
@@ -227,9 +229,7 @@ if __name__ == "__main__":
             hist_data.SetMarkerSize(1)
             hist_data.Draw("EP")
             hs.Draw("HIST same")
-            # print("total bins: ", sum_bkg.GetNbinsX())
-            # for ibin in range(sum_bkg.GetNbinsX()):
-            #     sum_bkg.SetBinError(ibin+1, sum_bkg.GetBinContent(ibin+1)*0.1)
+
 
             # show error band for the total background curve
             sum_bkg.SetFillStyle(3244)

@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-from root_plot_utils.ploter import Ploter
-from root_plot_utils import adder
-import ROOT
-ROOT.gROOT.SetBatch()
 import os
 import argparse
 
+import ROOT
+ROOT.gROOT.SetBatch()
 
+from checkws.ploter import Ploter
+from checkws import adder
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="plot the pull plot")
     add_arg = parser.add_argument

@@ -36,7 +36,7 @@ def make_legend(x1, y1, x2, y2):
     return legend
     
 
-def add_band(hist, center, width, add_stats=True):
+def make_band(hist, center, width, add_stats=True):
     x = array('d')
     y = array('d')
     up = array('d')
@@ -46,12 +46,14 @@ def add_band(hist, center, width, add_stats=True):
         ibin = i+1
         if add_stats:
             content = hist.GetBinContent(ibin)/weight
-            width = math.sqrt(width**2 + 1./content)
+            new_width = math.sqrt(width**2 + 1./content)
+        else:
+            new_width = width
 
         x.append(hist.GetXaxis().GetBinCenter(ibin))
         y.append(center)
-        up.append(center + width)
-        down.append(max(center - width, 0))
+        up.append(center + new_width)
+        down.append(max(center - new_width, 0))
 
     n = len(x)
     grband = ROOT.TGraph(2*n)

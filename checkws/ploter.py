@@ -1,16 +1,14 @@
 from __future__ import absolute_import
 from __future__ import print_function
-__author__ = "Xiangyang Ju"
-__version__ = "0.1"
-
-import ROOT
-from array import array
-from root_plot_utils import AtlasStyle
 
 import os
 import errno
 
-from root_plot_utils import adder
+import ROOT
+from array import array
+
+from checkws import AtlasStyle
+from checkws import adder
 
 class Ploter:
     def __init__(self, status="Internal", lumi=36.1):
