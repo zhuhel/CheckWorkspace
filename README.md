@@ -21,7 +21,7 @@ which could be something like `/afs/cern.ch/work/x/xju/Install/python2p7`. Then 
 ```bash
 export PYTHONPATH=$PYTHONPATH:YOUR-OWN-DIR/lib/python2.7/site-packages
 
-pip install -e . --prefix=YOUR-OWN-DIR --process-dependency-links
+pip install -e . --prefix=YOUR-OWN-DIR
 ```
 
 This installs all the exectuables specified in the `setup.py` in an __editable__ model (thanks to the `-e` option), in which case all changes you would make during developments will take effects immediately (i.e. no need of installing again).

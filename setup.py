@@ -17,13 +17,11 @@ setup(
     install_requires=[
         "argparse",
         "numpy",
-        'root_plot_utils',
+        # 'root_plot_utils',
     ],
     dependency_links=[
-        'https://github.com/xju2/root_plot_utils/tarball/v1.0.1#egg=root_plot_utils-1.0.1'
-        # 'https://github.com/xju2/root_plot_utils.git'
+        # 'https://github.com/xju2/root_plot_utils/tarball/v1.0.1#egg=root_plot_utils-1.0.1'
     ],
-    # setup_requires=['root_plot_utils==1.0.1'],
     scripts=[
         'scripts/check_ws',
         'scripts/print_np',
