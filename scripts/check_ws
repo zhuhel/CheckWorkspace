@@ -252,7 +252,7 @@ if __name__ == "__main__":
         #legend.AddEntry(hist_sonly, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
         if hist_sonlypdf:
             legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), print_hist(hist_sonly, add_bkg_sys)), "L")
-        legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
+        # legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
         legend.AddEntry(sum_bkg, "Total Bkg {}".format(print_hist(sum_bkg, add_bkg_sys)), "F")
 
         for hist, tag in zip(hist_list, tag_list):
