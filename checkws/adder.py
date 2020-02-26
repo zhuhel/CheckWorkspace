@@ -21,7 +21,7 @@ def add_line(hist, y_val, color=1, style=2, option="x"):
     line.SetLineColor(color)
     line.SetLineStyle(style)
     line.SetLineWidth(2)
-    if option.lowercase() == "x":
+    if option.lower() == "x":
         line.DrawLine(x_low, y_val, x_hi, y_val)
     else:
         line.DrawLine(y_val, y_low, y_val, y_hi)
@@ -44,9 +44,12 @@ def make_band(hist, center, width, add_stats=True):
     weight = hist.Integral()/hist.GetEntries()
     for i in range(hist.GetXaxis().GetNbins()):
         ibin = i+1
-        if add_stats:
-            content = hist.GetBinContent(ibin)/weight
-            new_width = math.sqrt(width**2 + 1./content)
+        content = hist.GetBinContent(ibin)/weight
+        if add_stats and content < 1E-10:
+            new_width = width
+        elif add_stats:
+            tot_variance = width**2 + 1./content
+            new_width = math.sqrt(tot_variance)
         else:
             new_width = width
 

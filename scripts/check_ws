@@ -212,7 +212,8 @@ if __name__ == "__main__":
         ps.pad2.cd()
  
         new_data_copy = hist_data.Clone("data_copy")
-        data_band = adder.make_band(new_data_copy)
+        # in the ratio panel, add a band representing data states uncertainty
+        data_band = adder.make_band(new_data_copy, 1., 0.)
         ps.add_ratio_panel([new_data_copy, sum_bkg], "Data/MC", 0.50, 2.0)
         data_band.Draw("F same")
 
