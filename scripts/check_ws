@@ -2,6 +2,8 @@
 """
 plot the shape from workspace, written in py2
 """
+from __future__ import print_function
+from __future__ import division
 
 from checkws.ws_reader import WSReader
 import os
@@ -50,8 +52,8 @@ if __name__ == "__main__":
             default='Internal', choices=['Internal', 'Preliminary', ' '])
     add_arg("--noPlot", help="don't make plots", action="store_true")
     add_arg("--nBins", help="setup binning of the observable", default=10000, type=int)
-    add_arg("--xMax", help="max value of the observable", default=0, type=float)
-    add_arg("--xMin", help="min value of the observable", default=100000, type=float)
+    add_arg("--xMax", help="max value of the observable", default=10000, type=float)
+    add_arg("--xMin", help="min value of the observable", default=0., type=float)
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF')
 
@@ -96,6 +98,11 @@ if __name__ == "__main__":
 
     obs_var = ws_reader.mc.GetObservables().first()
     redefine_range(obs_var, args.nBins, args.xMax, args.xMin)
+    obs_bin_width = (obs_var.getMax() - obs_var.getMin()) / obs_var.getBins()
+    obs_bins = (obs_var.getMin(), obs_var.getMax(), obs_var.getBins(), obs_bin_width)
+    print("Binning info of observable {}: {}, {} with {} bins, bin-width: {} GeV".format(
+        obs_var.GetName(), *obs_bins))
+
 
     # fitting
     snapshot_name = args.save_snapshot_to
@@ -224,7 +231,7 @@ if __name__ == "__main__":
         ps.get_offset(hist_splusb)
         ps.set_y_range([hist_data, hist_splusb], args.logY)
         hist_data.SetXTitle(obs_var.GetName())
-        hist_data.SetYTitle("Events")
+        hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
 
         if hist_data:
             legend = ps.get_legend(len(hist_list) + 3)

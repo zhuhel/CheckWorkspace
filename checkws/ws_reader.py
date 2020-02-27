@@ -221,8 +221,6 @@ class WSReader:
             obs = pdf.getObservables( self.observables )
             obs_var = obs.first()
             obs_bins = (obs_var.getBins(), obs_var.getMin(), obs_var.getMax())
-            # #redefine the range
-            # self.redefine_range(obs_var)
 
             ## get data first...
             hist_data = None
