@@ -23,6 +23,8 @@ if __name__ == "__main__":
     add_arg('-o', "--out_dir", help="name of output directory", default="out")
     add_arg('--postfix', help='postfix used in naming histograms', default='nominal')
     add_arg('-v', '--verbose', help='print info for debuging', action='store_true')
+    add_arg('--recreate', help='create histograms anyway even they already exist', action='store_true')
+
     # workspace information
     add_arg("-w", "--wsname", default='combined')
     add_arg("-m", '--mcname', default='ModelConfig')
@@ -64,6 +66,8 @@ if __name__ == "__main__":
     postfix = args.postfix
     verbose = args.verbose
     add_bkg_sys = args.add_bkg_sys
+    force_update = args.recreate
+
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -99,11 +103,10 @@ if __name__ == "__main__":
     if args.afterFit:
         if args.conditionalFit:
             ws_reader.fix_var(ws_reader.poi.GetName(), ws_reader.poi.getVal())
-        
-
         ws_reader.fit(snapshot_name, save_to_file=fitted_file_name, do_matrix=args.matrix)
 
-    norm_hist_name = ws_reader.loop_categories(postfix=postfix)
+    # make histograms
+    norm_hist_name = ws_reader.loop_categories(postfix=postfix, force_update=force_update)
 
     # background systematic uncertainties
     # obtained by changing all nuisance parameters +/- their error
@@ -139,7 +142,7 @@ if __name__ == "__main__":
                 error = 1.
             var.setVal(norm_val+error)
             var = itr()
-        up_hist_name = ws_reader.loop_categories(postfix=up_postfix)
+        up_hist_name = ws_reader.loop_categories(postfix=up_postfix, force_update=force_update)
         ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
         # down
         itr = itr.Begin()
@@ -152,7 +155,7 @@ if __name__ == "__main__":
                 error = 1.
             var.setVal(norm_val-error)
             var = itr()
-        down_hist_name = ws_reader.loop_categories(postfix=down_postfix)
+        down_hist_name = ws_reader.loop_categories(postfix=down_postfix, force_update=force_update)
         ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
 
     # Now plotting
@@ -187,7 +190,7 @@ if __name__ == "__main__":
                     # symmetric error
                     error = abs(up_val - down_val)*0.5
                     hist.SetBinError(ibin, error)
-            else: ## add every small error
+            else: # add every small error
                 for ibin in range(hist.GetNbinsX()):
                     hist.SetBinError(ibin+1, 1E-6)
 

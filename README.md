@@ -57,7 +57,7 @@ cd run
 check_ws workspace.root --out_dir numbers -w combined -d obsData --poi_name XS_ggF --fixVar "XS_VBF=0, mH=500" --nBins 60
 ```
 
-* Check expected number of signal and background events in the workspace at 500 GeV (pre-fit) **with background uncertainties**.
+* Check expected number of signal and background events in the workspace at 500 GeV (pre-fit) **with background uncertainties**, in the following examples, always add this option. Later version will use this as default.
 
 ```bash
 check_ws workspace.root --out_dir numbers -w combined -d obsData --poi_name XS_ggF --fixVar "XS_VBF=0, mH=500" --nBins 60 --add-bkg-sys --signalScale 0.

@@ -153,6 +153,7 @@ class WSReader:
             return
 
         if self.ws.loadSnapshot(snapshot_name):
+            print("Reuse fitted results saved at snapshot: {}".format(snapshot_name))
             return True
 
         nuisance = self.mc.GetNuisanceParameters()
@@ -191,15 +192,18 @@ class WSReader:
             fout.Close()
 
 
-    def loop_categories(self, postfix='nominal'):
+    def loop_categories(self, postfix='nominal', force_update=False):
         """
         make histograms for each component, save them into file [optional]
         print and save the yields
         """
         outname = os.path.join(self.out_dir, "histograms_{}.root".format(postfix))
         if os.path.exists(outname):
-            print("{} is there, do nothing".format(outname))
-            return outname
+            print("{} is there, ".format(outname))
+            if not force_update:
+                return outname
+            else:
+                print("forcing updates. May the observable range be changed?")
 
         f_out = ROOT.TFile.Open(outname, "recreate")
 
