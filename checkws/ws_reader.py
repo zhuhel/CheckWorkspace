@@ -185,7 +185,7 @@ class WSReader:
             self.corr = corr_hist.Clone("corr")
             self.corr.SetDirectory(0)
             fout = ROOT.TFile.Open(self.corr_root_path, 'recreate')
-            corr_hist.Write()
+            self.corr.Write()
             fit_res.SetName("nll_res")
             fit_res.Write()
             fout.Close()
