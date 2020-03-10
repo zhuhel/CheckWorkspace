@@ -51,9 +51,9 @@ if __name__ == "__main__":
     add_arg("--plot-type", help='Internal or preliminary',
             default='Internal', choices=['Internal', 'Preliminary', ' '])
     add_arg("--noPlot", help="don't make plots", action="store_true")
-    add_arg("--nBins", help="setup binning of the observable", default=65, type=int)
-    add_arg("--xMax", help="max value of the observable", default=1500, type=float)
-    add_arg("--xMin", help="min value of the observable", default=200., type=float)
+    add_arg("--nBins", help="setup binning of the observable", default=None, type=int)
+    add_arg("--xMax", help="max value of the observable", default=None, type=float)
+    add_arg("--xMin", help="min value of the observable", default=None, type=float)
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF')
 

@@ -22,9 +22,9 @@ def get_diagnal(array):
 
 
 def redefine_range(obs, nbins, max_var, min_var):
-    obs_nbins = nbins
-    obs_max = max_var if obs.getMax() > max_var else obs.getMax()
-    obs_min = min_var if obs.getMin() < min_var else obs.getMin()
+    obs_nbins = nbins if not nbins else obs.getBins()
+    obs_max = max_var if not max_var else obs.getMax()
+    obs_min = min_var if not min_var else obs.getMin()
     
     obs.setMax(obs_max)
     obs.setMin(obs_min)
