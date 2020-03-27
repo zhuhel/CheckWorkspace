@@ -80,7 +80,11 @@ if __name__ == "__main__":
         data_name=args.dataname,
         poi_name=args.poi_name
     )
-    if not ws_reader.data or not ws_reader.poi:
+    if not ws_reader.data:
+        print (" Erorro: data not found", args.dataname)
+        exit(1)
+    if not ws_reader.poi:
+        print (" Erorro: POI not found", args.poi_name)
         exit(1)
 
     print("Categories:", ws_reader.category_names)
@@ -89,6 +93,8 @@ if __name__ == "__main__":
     print("Signal samples:", signal_mcs)
 
     ws_reader.poi.setVal(args.signalScale)
+    print ("poi: ")
+    ws_reader.poi.Print()
 
     if args.fixVar:
         ws_reader.fix_var_str(args.fixVar)
@@ -183,6 +189,9 @@ if __name__ == "__main__":
                 continue
             hist_name = '{}-{}-{}__{}'.format(mc, cat_name, postfix, obs_var.GetName())
             hist = f_hist.Get(hist_name)
+            if not hist:
+              print ("\nWARNING!! hist not found:", hist_name, "\n")
+              continue
             hist.SetDirectory(0)
             if add_bkg_sys:
                 # access up and down histograms and calculate the variations
