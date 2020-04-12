@@ -10,6 +10,7 @@ import os
 import argparse
 from checkws.root_utils import redefine_range
 from checkws.root_utils import print_hist
+from checkws.root_utils import sumw2
 from checkws.ploter import Ploter
 from checkws import adder
 
@@ -213,6 +214,7 @@ if __name__ == "__main__":
         hist_splusb = f_hist.Get("splusb-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
         hist_sonlypdf = f_hist.Get("Signal-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
         hist_sonly = f_hist.Get("signalOnly-{}-{}".format(cat_name, postfix))
+        sumw2(hist_data)
 
         ps.color(hist_list)
         sum_bkg, hs = ps.stack(hist_list)
@@ -223,7 +225,7 @@ if __name__ == "__main__":
  
         new_data_copy = hist_data.Clone("data_copy")
         # in the ratio panel, add a band representing data states uncertainty
-        data_band = adder.make_band(new_data_copy, 1., 0.)
+        data_band = adder.make_self_ratio_band(new_data_copy)
         ps.add_ratio_panel([new_data_copy, sum_bkg], "Data/MC", 0.50, 2.0)
         data_band.Draw("F same")
 

@@ -42,3 +42,8 @@ def print_hist(hist, add_sys):
     else:
         out_str = "{:.2f}".format(hist.Integral())
     return out_str
+
+
+def sumw2(hist):
+    if hist.GetSumw2 is None:
+        hist.Sumw2(True)

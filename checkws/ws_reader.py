@@ -173,7 +173,12 @@ class WSReader:
             ROOT.Math.MinimizerOptions.DefaultMinimizerAlgo()
         )
         if status != 0:
-            print("status is not zero!")
+            minim.setStrategy(1)
+            status = minim.minimize(
+                "Minuit2",
+                ROOT.Math.MinimizerOptions.DefaultMinimizerAlgo()
+            )
+        assert status == 0, "Fit did not converge..change to a different strategy"
 
         self.ws.saveSnapshot(snapshot_name, self.ws.allVars())
         if save_to_file:

@@ -36,7 +36,7 @@ def make_legend(x1, y1, x2, y2):
     return legend
     
 
-def make_band(hist, center, width, add_stats=True):
+def make_error_band(hist, center, width, add_stats=True, scale=1.):
     x = array('d')
     y = array('d')
     up = array('d')
@@ -48,7 +48,7 @@ def make_band(hist, center, width, add_stats=True):
         if add_stats and content < 1E-10:
             new_width = width
         elif add_stats:
-            tot_variance = width**2 + 1./content
+            tot_variance = width**2 + scale/content
             new_width = math.sqrt(tot_variance)
         else:
             new_width = width
@@ -68,3 +68,6 @@ def make_band(hist, center, width, add_stats=True):
     grband.SetFillColor(16)
     #grband.Draw("F SAME")
     return grband
+
+def make_self_ratio_band(hist):
+    return make_error_band(hist, 1., 0, scale=2.)
