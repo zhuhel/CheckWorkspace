@@ -45,5 +45,5 @@ def print_hist(hist, add_sys):
 
 
 def sumw2(hist):
-    if hist.GetSumw2 is None:
+    if hist.GetSumw2() is None:
         hist.Sumw2(True)

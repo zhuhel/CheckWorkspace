@@ -2,6 +2,7 @@
 import ROOT
 from array import array
 import math
+from checkws.root_utils import sumw2
 
 def add_text(x, y, color, text, size=0.05, font=42):
     l = ROOT.TLatex()
@@ -71,3 +72,34 @@ def make_error_band(hist, center, width, add_stats=True, scale=1.):
 
 def make_self_ratio_band(hist):
     return make_error_band(hist, 1., 0, scale=2.)
+
+def make_error_band2(hist, center, width):
+    x = array('d')
+    y = array('d')
+    up = array('d')
+    down = array('d')
+    sumw2(hist)
+    sum_w2 = hist.GetSumw2()
+    for i in range(hist.GetXaxis().GetNbins()):
+        ibin = i+1
+        content = hist.GetBinContent(ibin)
+        if content < 1E-10:
+            new_width = width
+        else:
+            tot_variance = width**2 + scale*sum_w2[ibin]
+            new_width = math.sqrt(tot_variance)
+
+        x.append(hist.GetXaxis().GetBinCenter(ibin))
+        y.append(center)
+        up.append(center + new_width)
+        down.append(max(center - new_width, 0))
+
+    n = len(x)
+    grband = ROOT.TGraph(2*n)
+    for i in range(n):
+        grband.SetPoint(i, x[i], up[i])
+        grband.SetPoint(n+i, x[n-i-1], down[n-i-1])
+
+    grband.SetFillStyle(3013)
+    grband.SetFillColor(16)
+    return grband

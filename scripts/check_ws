@@ -225,7 +225,7 @@ if __name__ == "__main__":
  
         new_data_copy = hist_data.Clone("data_copy")
         # in the ratio panel, add a band representing data states uncertainty
-        data_band = adder.make_self_ratio_band(new_data_copy)
+        data_band = adder.make_error_band2(sum_bkg, center=1., width=0.)
         ps.add_ratio_panel([new_data_copy, sum_bkg], "Data/MC", 0.50, 2.0)
         data_band.Draw("F same")
 
