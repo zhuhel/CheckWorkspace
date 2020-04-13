@@ -73,7 +73,7 @@ def make_error_band(hist, center, width, add_stats=True, scale=1.):
 def make_self_ratio_band(hist):
     return make_error_band(hist, 1., 0, scale=2.)
 
-def make_error_band2(hist, center, width):
+def make_error_band2(hist, center, width, scale=1.):
     x = array('d')
     y = array('d')
     up = array('d')
@@ -103,3 +103,65 @@ def make_error_band2(hist, center, width):
     grband.SetFillStyle(3013)
     grband.SetFillColor(16)
     return grband
+
+def make_error_band3(hist, center, width, scale=1.):
+    x = array('d')
+    y = array('d')
+    up = array('d')
+    down = array('d')
+    sumw2(hist)
+    name = hist.GetName()
+    name = name + "_relative_syst"
+    ## hist
+    if isinstance(hist, ROOT.TH1):
+      h_err = ROOT.TGraphAsymmErrors(hist)
+      h_err.SetName(name)
+      h_err.SetTitle(name)
+      for i in range(hist.GetXaxis().GetNbins()):
+        ibin = i+1
+        x = hist.GetBinCenter(ibin)
+        content = hist.GetBinContent(ibin)
+        e_up = hist.GetBinErrorUp(ibin)
+        e_down = hist.GetBinErrorLow(ibin)
+        r_up = 0
+        r_down = 0
+        if content!=0:
+          r_up = e_up/content
+          r_down = e_down/content
+
+        h_err.SetPoint(i, x, 1.)
+        ex_up = hist.GetBinWidth(ibin)*0.5
+        ex_dn = ex_up
+        h_err.SetPointEXhigh(i, ex_up)
+        h_err.SetPointEXlow(i, ex_dn)
+        h_err.SetPointEYhigh(i, r_up)
+        h_err.SetPointEYlow(i, r_down)
+
+        
+    ## Tgraph
+    if isinstance(hist, ROOT.TGraphAsymmErrors):
+      h_err = hist.Clone()
+      h_err.SetName(name)
+      h_err.SetTitle(name)
+      for i in range(hist.GetN()):
+        ibin = i
+        x, y = ROOT.Double_t(), ROOT.Double_t()
+        hist.GetPoint(ibin, x, y)
+        ex_up, ex_dn, ey_up, dy_dn = hist.GetErrorXhigh(ibin), hist.GetErrorXlow(ibin), hist.GetErrorYhigh(ibin), hist.GetErrorYlow(ibin)
+        r_up = 0
+        r_down = 0
+        content=y
+        if content!=0:
+          r_up = e_up/content
+          r_down = e_down/content
+        h_err.SetPoint(i, x, 1.)
+        h_err.SetPointEXhigh(ibin, ex_up)
+        h_err.SetPointEXlow(ibin, ex_dn)
+        h_err.SetPointEYhigh(ibin, ey_up)
+        h_err.SetPointEYlow(ibin, ey_dn)
+
+    h_err.SetLineColor(1)
+    h_err.SetMarkerStyle(0)
+    h_err.SetFillStyle(3004)
+    h_err.SetFillColor(1)
+    return h_err

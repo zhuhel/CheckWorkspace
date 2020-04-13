@@ -81,7 +81,11 @@ if __name__ == "__main__":
         data_name=args.dataname,
         poi_name=args.poi_name
     )
-    if not ws_reader.data or not ws_reader.poi:
+    if not ws_reader.data:
+        print (" Erorro: data not found", args.dataname)
+        exit(1)
+    if not ws_reader.poi:
+        print (" Erorro: POI not found", args.poi_name)
         exit(1)
 
     print("Categories:", ws_reader.category_names)
@@ -90,12 +94,23 @@ if __name__ == "__main__":
     print("Signal samples:", signal_mcs)
 
     ws_reader.poi.setVal(args.signalScale)
+    print ("poi: ")
+    ws_reader.poi.Print()
 
     if args.fixVar:
         ws_reader.fix_var_str(args.fixVar)
     
     if args.floatVar:
         ws_reader.float_var_str(args.floatVar)
+
+    obs_vars = ws_reader.mc.GetObservables()
+    print("obs_vars size:", obs_vars.getSize())
+    if obs_vars.getSize()>1:
+      oitr = ROOT.TIter(obs_vars.createIterator())
+      ovar = oitr()
+      while ovar:
+        ovar.Print()
+        ovar = oitr()
 
     obs_var = ws_reader.mc.GetObservables().first()
     redefine_range(obs_var, args.nBins, args.xMax, args.xMin)
@@ -144,6 +159,10 @@ if __name__ == "__main__":
         var = itr()
         while var:
             name = var.GetName()
+            ## skip ZZ normalization factors
+            if "mu" in name and "ZZ" in name:
+              var = itr()
+              continue 
             error = var.getError()
             norm_val = var.getVal()
             if abs(error) < 1E-10:
@@ -157,6 +176,10 @@ if __name__ == "__main__":
         var = itr()
         while var:
             name = var.GetName()
+            ## skip ZZ normalization factors
+            if "mu" in name and "ZZ" in name:
+              var = itr()
+              continue 
             error = var.getError()
             norm_val = var.getVal()
             if abs(error) < 1E-10:
@@ -176,14 +199,37 @@ if __name__ == "__main__":
         f_down = ROOT.TFile(down_hist_name)
 
     ps = Ploter(args.plot_type, args.lumi)
+
+    # Correlation matrix
+    if args.afterFit:
+        if args.matrix:
+          ps.plot_correlation(ws_reader.corr, ws_reader.out_dir+"/correlation_matrix", 0.05) 
+
     for cat_name in ws_reader.category_names:
         raw_hist_list = []
         raw_tag_list = []
+        # get the correct obs based on different channels
+        if obs_vars.getSize()>1:
+          oitr = ROOT.TIter(obs_vars.createIterator())
+          ovar = oitr()
+          while ovar:
+            name = ovar.GetName()
+            if "llll" in cat_name and "m4l" in name:
+              obs_var=ovar
+              break
+            if "llvv" in cat_name and "mT" in name:
+              obs_var=ovar
+              break
+            ovar = oitr()
+
         for mc in ws_reader.mc_samples:
             if mc in signal_mcs:
                 continue
             hist_name = '{}-{}-{}__{}'.format(mc, cat_name, postfix, obs_var.GetName())
             hist = f_hist.Get(hist_name)
+            if not hist:
+              print ("\nWARNING!! hist not found:", hist_name, "\n")
+              continue
             hist.SetDirectory(0)
             if add_bkg_sys:
                 # access up and down histograms and calculate the variations
@@ -191,19 +237,25 @@ if __name__ == "__main__":
                 hist_up = f_up.Get(hist_name)
                 hist_name = '{}-{}-{}__{}'.format(mc, cat_name, down_postfix, obs_var.GetName())
                 hist_down = f_down.Get(hist_name)
-                for ibin in range(hist.GetNbinsX()):
+                if hist_up and hist_down:
+                  for ibin in range(hist.GetNbinsX()):
                     norm_val = hist.GetBinContent(ibin+1)
                     up_val = hist_up.GetBinContent(ibin+1)
                     down_val = hist_down.GetBinContent(ibin+1)
                     # symmetric error
                     error = abs(up_val - down_val)*0.5
                     hist.SetBinError(ibin, error)
+                else:
+                  print("   WARNIGN!! up/down hist not found")
+                  print("   hist_down:", hist_name)
             else: # add every small error
                 for ibin in range(hist.GetNbinsX()):
                     hist.SetBinError(ibin+1, 1E-6)
 
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
+
+        if len(raw_hist_list)==0: continue
 
         # sort them by number of yields
         sorted_idx = sorted(range(len(raw_hist_list)), key=lambda x: raw_hist_list[x].Integral(), reverse=True)
@@ -225,9 +277,12 @@ if __name__ == "__main__":
  
         new_data_copy = hist_data.Clone("data_copy")
         # in the ratio panel, add a band representing data states uncertainty
-        data_band = adder.make_error_band2(sum_bkg, center=1., width=0.)
-        ps.add_ratio_panel([new_data_copy, sum_bkg], "Data/MC", 0.50, 2.0)
-        data_band.Draw("F same")
+        data_band = adder.make_error_band3(sum_bkg, center=1., width=0.)
+        # only draw stat error for data/MC ratio
+        sum_bkg_copy = sum_bkg.Clone("bkg_copy")
+        for ibin in range(sum_bkg_copy.GetNbinsX()): sum_bkg_copy.SetBinError(ibin, 1E-6) 
+        ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", 0.50, 2.0)
+        data_band.Draw("E2 same")
 
         ps.pad1.cd()
         ps.get_offset(hist_splusb)
