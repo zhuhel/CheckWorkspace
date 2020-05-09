@@ -14,7 +14,7 @@ currentDir=$PWD
 cd $HZZWorkspaceDIR
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 source $ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh
-asetup AnalysisBase,21.2.89,here && source x86_64-centos7-gcc8-opt/setup.sh
+asetup AnalysisBase,21.2.89,here && source x86_64-*/setup.sh
 cd $currentDir
 # asetup --restore && source x86_64-centos7-gcc8-opt/setup.sh
 # 

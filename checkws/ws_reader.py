@@ -155,6 +155,14 @@ class WSReader:
             print("Reuse fitted results saved at snapshot: {}".format(snapshot_name))
             return True
 
+        if os.path.isfile(self.corr_root_path):
+            print("Reuse fitted results saved at root file: {}".format(self.corr_root_path))
+            fout = ROOT.TFile.Open(self.corr_root_path)
+            self.corr = fout.Get("corr")
+            self.corr.SetDirectory(0)
+            self.fit_res = fout.Get("nll_res")
+            return True
+
         nuisance = self.mc.GetNuisanceParameters()
         nuisance.Print("v")
         nll = self.simPdf.createNLL(
@@ -165,14 +173,20 @@ class WSReader:
         nll.enableOffsetting(True)
         minim = ROOT.RooMinimizer(nll)
         minim.optimizeConst(2)
-        minim.setStrategy(2)
+        #minim.setStrategy(2)
+        minim.setStrategy(1)
         #minim.setProfile()
         status = minim.minimize(
             "Minuit2",
             ROOT.Math.MinimizerOptions.DefaultMinimizerAlgo()
         )
         if status != 0:
-            print("status is not zero!")
+            minim.setStrategy(1)
+            status = minim.minimize(
+                "Minuit2",
+                ROOT.Math.MinimizerOptions.DefaultMinimizerAlgo()
+            )
+        assert status == 0, "Fit did not converge..change to a different strategy"
 
         self.ws.saveSnapshot(snapshot_name, self.ws.allVars())
         if save_to_file:
@@ -181,14 +195,14 @@ class WSReader:
 
         # after performed the Fit, plot the coefficient matrix
         if do_matrix:
-            fit_res = minim.save()
-            corr_hist = fit_res.correlationHist()
+            self.fit_res = minim.save()
+            corr_hist = self.fit_res.correlationHist()
             self.corr = corr_hist.Clone("corr")
             self.corr.SetDirectory(0)
             fout = ROOT.TFile.Open(self.corr_root_path, 'recreate')
             self.corr.Write()
-            fit_res.SetName("nll_res")
-            fit_res.Write()
+            self.fit_res.SetName("nll_res")
+            self.fit_res.Write()
             fout.Close()
 
 
