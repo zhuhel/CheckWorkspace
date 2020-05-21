@@ -129,6 +129,7 @@ def make_error_band3(hist, center, width, scale=1.):
           r_up = e_up/content
           r_down = e_down/content
 
+	print(name, i, r_up, r_down)
         h_err.SetPoint(i, x, 1.)
         ex_up = hist.GetBinWidth(ibin)*0.5
         ex_dn = ex_up

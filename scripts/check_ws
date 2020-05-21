@@ -52,11 +52,12 @@ if __name__ == "__main__":
     add_arg("--plot-type", help='Internal or preliminary',
             default='Internal', choices=['Internal', 'Preliminary', ' '])
     add_arg("--noPlot", help="don't make plots", action="store_true")
-    add_arg("--nBins", help="setup binning of the observable", default=None, type=int)
-    add_arg("--xMax", help="max value of the observable", default=None, type=float)
-    add_arg("--xMin", help="min value of the observable", default=None, type=float)
+    add_arg("--nBins", help="setup binning of the observable", default=60, type=int)
+    add_arg("--xMax", help="max value of the observable", default=2000, type=float)
+    add_arg("--xMin", help="min value of the observable", default=200, type=float)
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
-    add_arg("--signal-mc", help='signal MC names', default='VBF, ggF')
+    add_arg("--signal-mc", help='signal MC names', default='VBF, ggF, VBFH, ggH')
+    #add_arg("--signal-mc", help='signal MC names', default='ggF, ggH')
 
     try:
         args = parser.parse_args()
@@ -81,11 +82,7 @@ if __name__ == "__main__":
         data_name=args.dataname,
         poi_name=args.poi_name
     )
-    if not ws_reader.data:
-        print (" Erorro: data not found", args.dataname)
-        exit(1)
-    if not ws_reader.poi:
-        print (" Erorro: POI not found", args.poi_name)
+    if not ws_reader.data or not ws_reader.poi:
         exit(1)
 
     print("Categories:", ws_reader.category_names)
@@ -96,6 +93,7 @@ if __name__ == "__main__":
     ws_reader.poi.setVal(args.signalScale)
     print ("poi: ")
     ws_reader.poi.Print()
+    ws_reader.init_NPs()
 
     if args.fixVar:
         ws_reader.fix_var_str(args.fixVar)
@@ -110,19 +108,29 @@ if __name__ == "__main__":
       ovar = oitr()
       while ovar:
         ovar.Print()
+        #if "Cat" not in ovar.GetName():
+        #   obs_bin_width = (ovar.getMax() - ovar.getMin()) / ovar.getBins()
+        #   obs_bins = (ovar.getMin(), ovar.getMax(), ovar.getBins(), obs_bin_width)
+        #   print("Binning info of observable {}: {}, {} with {} bins, bin-width: {} GeV".format(
+        #       ovar.GetName(), *obs_bins))
         ovar = oitr()
 
+    obs_4l = ws_reader.ws.var("m4l")
+    if obs_4l : redefine_range(obs_4l, args.nBins, args.xMax, args.xMin)
     obs_var = ws_reader.mc.GetObservables().first()
-    redefine_range(obs_var, args.nBins, args.xMax, args.xMin)
-    obs_bin_width = (obs_var.getMax() - obs_var.getMin()) / obs_var.getBins()
-    obs_bins = (obs_var.getMin(), obs_var.getMax(), obs_var.getBins(), obs_bin_width)
-    print("Binning info of observable {}: {}, {} with {} bins, bin-width: {} GeV".format(
-        obs_var.GetName(), *obs_bins))
-
 
     # fitting
     snapshot_name = args.save_snapshot_to
     fitted_file_name = args.save_fitted_to
+    mu_VBF = ws_reader.ws.var("mu_VBF")
+    mu_ggF = ws_reader.ws.var("mu_ggF")
+    if not mu_VBF: mu_VBF = ws_reader.ws.var("XS_VBF")
+    if not mu_ggF: mu_ggF = ws_reader.ws.var("XS_ggF")
+    if mu_VBF: 
+        mu_VBF.setMin(0.)
+    if mu_ggF: 
+        mu_ggF.setMin(0.)
+
     if args.afterFit:
         if args.conditionalFit:
             ws_reader.fix_var(ws_reader.poi.GetName(), ws_reader.poi.getVal())
@@ -154,6 +162,7 @@ if __name__ == "__main__":
             if verbose:
                 print("{}: {} +/- {}".format(name, norm_val, error))
             var = itr()
+	muZZs = ["muZZ_VBF", "muZZ_rest", "muZZ_ggF", "muZZ", "mu_llll_ZZ_VBF", "mu_llll_ZZ_ggF", "mu_llll_ZZ_rest", "mu_llvv_ZZ", "mu_llll_ZZ"]
         # up
         itr = itr.Begin()
         var = itr()
@@ -169,6 +178,12 @@ if __name__ == "__main__":
                 error = 1.
             var.setVal(norm_val+error)
             var = itr()
+	for vname in muZZs:
+	    var = ws_reader.ws.var(vname)
+	    if var:
+                error = var.getError()
+                norm_val = var.getVal()
+                var.setVal(norm_val+error)
         up_hist_name = ws_reader.loop_categories(postfix=up_postfix, force_update=force_update)
         ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
         # down
@@ -182,10 +197,18 @@ if __name__ == "__main__":
               continue 
             error = var.getError()
             norm_val = var.getVal()
+            if "mu" in name and "ZZ" in name:
+	        print(name, error)
             if abs(error) < 1E-10:
                 error = 1.
             var.setVal(norm_val-error)
             var = itr()
+	for vname in muZZs:
+	    var = ws_reader.ws.var(vname)
+	    if var:
+                error = var.getError()
+                norm_val = var.getVal()
+                var.setVal(norm_val-error)
         down_hist_name = ws_reader.loop_categories(postfix=down_postfix, force_update=force_update)
         ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
 
@@ -210,17 +233,18 @@ if __name__ == "__main__":
         raw_tag_list = []
         # get the correct obs based on different channels
         if obs_vars.getSize()>1:
-          oitr = ROOT.TIter(obs_vars.createIterator())
-          ovar = oitr()
-          while ovar:
-            name = ovar.GetName()
-            if "llll" in cat_name and "m4l" in name:
-              obs_var=ovar
-              break
-            if "llvv" in cat_name and "mT" in name:
-              obs_var=ovar
-              break
+            oitr = ROOT.TIter(obs_vars.createIterator())
             ovar = oitr()
+            while ovar:
+              name = ovar.GetName()
+              if "llll" in cat_name and "m4l" in name:
+                obs_var=ovar
+	        #redefine_range(obs_var, args.nBins, args.xMax, args.xMin)
+                break
+              if "llvv" in cat_name and "mT" in name:
+                obs_var=ovar
+                break
+              ovar = oitr()
 
         for mc in ws_reader.mc_samples:
             if mc in signal_mcs:
@@ -252,6 +276,7 @@ if __name__ == "__main__":
                 for ibin in range(hist.GetNbinsX()):
                     hist.SetBinError(ibin+1, 1E-6)
 
+	    hist = ws_reader.translate_binning(hist, cat_name)
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
 
@@ -263,9 +288,13 @@ if __name__ == "__main__":
         tag_list = [raw_tag_list[idx] for idx in sorted_idx]
 
         hist_data = f_hist.Get("data-{}-{}".format(cat_name, postfix))
+	hist_data = ws_reader.translate_binning(hist_data, cat_name)
         hist_splusb = f_hist.Get("splusb-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
+	hist_splusb = ws_reader.translate_binning(hist_splusb, cat_name)
         hist_sonlypdf = f_hist.Get("Signal-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
+	hist_sonlypdf = ws_reader.translate_binning(hist_sonlypdf, cat_name)
         hist_sonly = f_hist.Get("signalOnly-{}-{}".format(cat_name, postfix))
+	hist_sonly = ws_reader.translate_binning(hist_sonly, cat_name)
         sumw2(hist_data)
 
         ps.color(hist_list)
@@ -288,7 +317,8 @@ if __name__ == "__main__":
         ps.get_offset(hist_splusb)
         ps.set_y_range([hist_data, hist_splusb], args.logY)
         hist_data.SetXTitle(obs_var.GetName())
-        hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
+        #hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
+        hist_data.SetYTitle("Events")
 
         if hist_data:
             legend = ps.get_legend(len(hist_list) + 3)
@@ -331,7 +361,7 @@ if __name__ == "__main__":
         ps.add_lumi()
 
         ps.can.SaveAs(os.path.join(ws_reader.out_dir, "{}.pdf".format(cat_name)))
-        ps.can.SaveAs(os.path.join(ws_reader.out_dir, "{}.eps".format(cat_name)))   
+        #ps.can.SaveAs(os.path.join(ws_reader.out_dir, "{}.eps".format(cat_name)))   
 
     f_hist.Close()
     if add_bkg_sys:

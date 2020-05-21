@@ -345,7 +345,12 @@ class Ploter:
             else:
                 self.can.SetLogy()
 
-            hist.GetYaxis().SetRangeUser(4E-3, y_max*1e2)
+            #hist.GetYaxis().SetRangeUser(1E-3, y_max*1e2)
+	    if y_min==0: y_min = max(hist_list, key=lambda x: x.GetMinimum()).GetMinimum()
+	    if y_min==0: 
+	        hist.GetYaxis().SetRangeUser(1E-2, y_max*1e2)
+	    else:
+	        hist.GetYaxis().SetRangeUser(y_min, y_max*1e2)
         else:
             if y_min < 0:
                 y_min *= 1.1

@@ -9,6 +9,7 @@ ROOT.gErrorIgnoreLevel = ROOT.kInfo
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.ERROR)
 
 import os
+from array import array
 
 class WSReader:
     def __init__(self, 
@@ -108,6 +109,35 @@ class WSReader:
             name, value = poi_str.strip().split('=')
             self.fix_var(name, float(value))
 
+    def translate_binning(self, hist, cate='ggF'):
+	if not hist or hist.GetNbinsX() > 28: return hist
+	if 'ggF' in cate:
+	    dbin = [0., 50., 100., 150., 200., 250., 300., 350., 400., 450., 500., 550., 600., 650., 700., 750., 800., 850., 900., 950., 1000., 1100., 1200., 1300., 1400., 1600., 1800., 2000.]
+	elif 'VBF' in cate:
+	    dbin = [0., 100., 420., 540., 820., 1700.]
+	myhist = ROOT.TH1F("","",( len(dbin)-1), array('d',dbin))
+	for i in range(len(dbin)-1):
+	    #print("translate_binning:", hist.GetName(), i, hist.GetBinContent(i+1))
+	    myhist.SetBinContent(i+1, hist.GetBinContent(i+1))
+	    myhist.SetBinError(i+1, hist.GetBinError(i+1))
+	    myhist.SetXTitle("mT")
+	return myhist
+
+
+    def init_NPs(self):
+        """
+        For combined workspace which has post-fit value for NPs,
+        reset the value of all NPs
+        """
+        if not self.ws.loadSnapshot("nominalNuis"):
+           print("No snapshot called 'nominalNuis', set to zero by hand!")
+           itr_nuis = self.mc.GetNuisanceParameters().createIterator()
+           var_nuis = itr_nuis.Next()
+           while var_nuis:
+               var_nuis.setVal(0.0)
+               var_nuis.setError(1.0)
+               var_nuis=itr_nuis.Next()
+
     def float_var(self, var_name):
         obj = self.ws.var(var_name.strip())
         if obj:
@@ -187,6 +217,8 @@ class WSReader:
                 ROOT.Math.MinimizerOptions.DefaultMinimizerAlgo()
             )
         assert status == 0, "Fit did not converge..change to a different strategy"
+        status = minim.hesse()
+        print("Hesse status:", status)
 
         self.ws.saveSnapshot(snapshot_name, self.ws.allVars())
         if save_to_file:

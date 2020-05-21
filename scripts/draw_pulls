@@ -12,14 +12,15 @@ from checkws import adder
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="plot the pull plot")
     add_arg = parser.add_argument
-    add_arg('input_file', help='workspace after fitting')
-    add_arg("-m", '--message', default='vvqq bkg')
+    #add_arg('input_file', help='workspace after fitting')
+    add_arg("-m", '--message', default='background-only fit')
+    add_arg("-f", '--input_file', default='correlation.root')
     args = parser.parse_args()
 
     corfile = args.input_file
     message = args.message
 
-    if not os.path.exists():
+    if not os.path.exists(corfile):
         print(corfile, "does not exit")
         exit(1)
 
@@ -40,13 +41,13 @@ if __name__ == "__main__":
         np_name = np_name.replace("alpha_","")
         np_name = np_name.replace("Sys","")
         np_name = np_name.replace("JET_SR1_","")
-        if "gamma_stat" in np_name:
+        if "gamma_stat" in np_name or "kappa" in np_name:
             pass
         else:
             nom = obj.getVal()
             error_hi = obj.getErrorHi()
             error_lo = obj.getErrorLo()
-            if abs(nom)  < 1E-2 and abs(error_hi-1) < 1E2:
+            if abs(nom)  < 1E-3 and abs(error_hi-1) < 1E-3:
                 n_skipped += 1
             else:
 
