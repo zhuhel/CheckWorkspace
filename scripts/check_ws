@@ -45,6 +45,8 @@ if __name__ == "__main__":
     add_arg("--save-fitted-to", help='save fitted results to a ROOT file', default='fitted.root')
     add_arg('--save-snapshot-to', help='snapshot name of fitted results', default='nllFit')
     add_arg("--conditionalFit", help="in conditional fit, POI is set to constant", action="store_true")
+    add_arg("--fixShapeNPs", help="set all shape syst NPs as constants", action="store_true")
+    add_arg("--fixAllNPs", help="set all syst NPs (shape and norm) as constants", action="store_true")
     add_arg("--matrix", help="plot covariance matrix", action='store_true')
 
     ## for plotting
@@ -126,6 +128,14 @@ if __name__ == "__main__":
     if args.afterFit:
         if args.conditionalFit:
             ws_reader.fix_var(ws_reader.poi.GetName(), ws_reader.poi.getVal())
+        if args.fixShapeNPs:
+            ws_reader.fix_shapeNPs()
+            if args.floatVar:
+                ws_reader.float_var_str(args.floatVar)
+        if args.fixAllNPs:
+            ws_reader.fix_allNPs()
+            if args.floatVar:
+                ws_reader.float_var_str(args.floatVar)
         ws_reader.fit(snapshot_name, save_to_file=fitted_file_name, do_matrix=args.matrix)
 
     # make histograms

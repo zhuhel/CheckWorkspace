@@ -94,6 +94,32 @@ class WSReader:
             obj = iter_category()
         self.mc_samples = list(set(self.mc_samples))
 
+    def fix_shapeNPs(self, ):
+        """ set all shape sys NPs as constants """
+        nuisances = self.mc.GetNuisanceParameters()
+        itr = ROOT.TIter(nuisances.createIterator())
+        var = itr()
+        while var:
+            name = var.GetName()
+            if "alpha" in name and "Shape" in name:
+              var.setConstant(True)
+              print("WARNING! set shape NP as constant", name)
+              var.Print()
+            var = itr()
+
+    def fix_allNPs(self, ):
+        """ set all sys NPs as constants """
+        nuisances = self.mc.GetNuisanceParameters()
+        itr = ROOT.TIter(nuisances.createIterator())
+        var = itr()
+        while var:
+            name = var.GetName()
+            if "alpha" in name:
+              var.setConstant(True)
+              print("WARNING! set NP as constant", name)
+              var.Print()
+            var = itr()
+
     def fix_var(self, var_name, var_value):
         obj = self.ws.var(var_name)
         if obj:
