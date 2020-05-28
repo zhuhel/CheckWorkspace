@@ -123,6 +123,7 @@ if __name__ == "__main__":
 
     # fitting
     nuisances = ws_reader.mc.GetNuisanceParameters()
+    nuisances.add(ws_reader.mc.GetParametersOfInterest()) ## floating ZZ factors are NOT treated as NPs, sigh..
     nuisance_snapshot_name = "nuisance_norminal"
     ws_reader.ws.saveSnapshot(nuisance_snapshot_name, nuisances)
 
@@ -140,6 +141,8 @@ if __name__ == "__main__":
             if args.floatVar:
                 ws_reader.float_var_str(args.floatVar)
         ws_reader.fit(snapshot_name, save_to_file=fitted_file_name, do_matrix=args.matrix)
+    else:
+        ws_reader.create_prefitres() 
 
     # make histograms
     norm_hist_name = ws_reader.loop_categories(postfix=postfix, force_update=force_update)
@@ -153,6 +156,7 @@ if __name__ == "__main__":
     else:
         # get error of each NP and change them +/- 1 error
         if not args.afterFit: ## for prefit
+            nuisances = ws_reader.mc.GetNuisanceParameters()
             if verbose:
               nuisances.Print("v")
             itr = ROOT.TIter(nuisances.createIterator())

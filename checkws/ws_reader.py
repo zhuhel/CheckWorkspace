@@ -12,6 +12,11 @@ import os
 import array
 from math import fabs, pow, sqrt
 
+thispath=os.path.abspath(__file__)
+thispath=os.path.dirname(thispath)
+ROOT.gInterpreter.Declare('#include "'+"{}/RooExpandedFitResult.h".format(thispath)+'"')
+ROOT.gROOT.LoadMacro("{}/RooExpandedFitResult.C".format(thispath))
+
 class WSReader:
     def __init__(self, 
                 file_name,  # input workspace
@@ -226,6 +231,7 @@ class WSReader:
         h_errors.SetFillStyle(3004)
 
         postFitYield = pdf.expectedEvents(ROOT.RooArgSet(obs))
+        print("\texpectedEvents={:.4f}\n".format(postFitYield))
         if postFitYield==0:
           postFitYield=hist.Integral()
         print("\tPostfit Integral={:.4f} + {:.4f} - {:.4f}\n".format(postFitYield,upYield-postFitYield,postFitYield-downYield))
@@ -316,6 +322,129 @@ class WSReader:
             self.fit_res.Write()
             fout.Close()
 
+    @staticmethod
+    def resetError(m_w, mc, parList, vetoList=None):
+      """
+      taken from CommonStatTools/HistFactoryInspector.C
+      RooWorkspace* m_w, RooStats::ModelConfig* mc, const RooArgList &parList, const RooArgList &vetoList= RooArgList()
+    
+      For the given workspace,
+      find the input systematic with
+      the given name and shift that
+      systematic by 1-sigma
+      """
+    
+      new_parList=ROOT.RooArgList(parList)
+      it = ROOT.TIter(new_parList.createIterator())
+    
+      globs = ROOT.RooArgSet(mc.GetGlobalObservables())
+      tmpvar=ROOT.RooRealVar()
+    
+      it = it.Begin()
+      arg = it()
+      while arg:
+        arg.Print()
+        UncertaintyName=""
+        # Ignore constant parameters
+        if (arg.InheritsFrom("RooRealVar") and (not arg.isConstant())):
+          UncertaintyName = arg.GetName()
+        else:
+          arg = it()
+          continue
+    
+        # Ignore parameters without constraint (Floattig normalization factors, for eg)
+        hasConstraint=False
+        itr = ROOT.TIter(globs.createIterator())
+        itr = itr.Begin()
+        tmpvar = itr()
+        while tmpvar:
+          varName=tmpvar.GetName()
+          tmpvar.Print()
+          if UncertaintyName.replace("alpha_", "") in varName:
+            if "_In" in varName or "nom_" in varName:
+              hasConstraint=True
+              break
+          tmpvar = itr()
+    
+        if (not hasConstraint): 
+          arg = it()
+          print("Warning=> not constraint, ignore", UncertaintyName)
+          continue
+    
+        if vetoList and (vetoList.FindObject(UncertaintyName) != 0):
+          arg = it()
+          continue
+    
+        var = m_w.var(UncertaintyName)
+    
+        # Initialize
+        val_hi  = 5
+        val_low = -5
+        sigma   = 0.
+        resetRange=False
+    
+        # If it is a stat uncertainty (gamma)
+        if "gamma" in UncertaintyName:
+    
+          # Get the constraint and check its type:
+          constraint     = m_w.obj((UncertaintyName + "_constraint"))
+          ConstraintType = "RooPoisson"
+          if constraint:
+            ConstraintType = constraint.IsA().GetName()
+    
+          if (ConstraintType == "RooGaussian"):
+            sigmaVar = m_w.obj((UncertaintyName + "_sigma"))
+            sigma    = sigmaVar.getVal()
+    
+            # Symmetrize shifts
+            val_hi     = 1 + sigma
+            val_low    = 1 - sigma
+            resetRange = True
+          elif (ConstraintType == "RooPoisson"):
+            nom_gamma     = m_w.obj(("nom_" + UncertaintyName))
+            nom_gamma_val = nom_gamma.getVal()
+    
+            sigma      = 1 / ROOT.TMath.Sqrt(nom_gamma_val)
+            val_hi     = 1 + sigma
+            val_low    = 1 - sigma
+            resetRange = True
+    
+        # Assume it's standard (gaussian) uncertainty by default
+        else:
+          # Assume the values are +1, -1
+          val_hi     = 1.0
+          val_low    = -1.0
+          sigma      = 1.0
+    
+        var.setError(fabs(sigma))
+        var.Print()
+        if (resetRange):
+          minrange = var.getMin()
+          maxrange = var.getMax()
+          newmin   = var.getVal() - 6. * sigma
+          newmax   = var.getVal() + 6. * sigma
+          if (minrange < newmin): var.setMin(newmin)
+          if (newmax < maxrange): var.setMax(newmax)
+    
+        arg = it()
+    
+      new_parList.Print()
+      return new_parList  
+    
+    def create_prefitres(self,):
+
+      nuis = self.mc.GetNuisanceParameters()
+      #nuis.add(self.mc.GetParametersOfInterest())
+    
+      np=ROOT.RooArgList(nuis)
+      nuis.Print()
+      print("OOOO")
+      np.Print()
+    
+      np=self.resetError(self.ws, self.mc, np)
+      rfrexp = ROOT.RooExpandedFitResult(np)
+      rfrexp.Print()
+      self.fit_res=rfrexp
 
     def loop_categories(self, postfix='nominal', force_update=False):
         """
@@ -348,6 +477,7 @@ class WSReader:
           self.fit_res.Print()
           if not self.ws.loadSnapshot("vars_final"):
             np = self.mc.GetNuisanceParameters()
+            np.add(self.mc.GetParametersOfInterest())
             snp_init="nuisance_norminal"
             self.ws.loadSnapshot(snp_init)
             print("Prefit Values:\n")
@@ -469,7 +599,7 @@ class WSReader:
                             y, err = 0, 0
                             total += sum_ch
                             simple_name = func.GetName().split('_')[2]
-                            print("  Look at component", func.GetName())
+                            print("  Look at component {}, yield {:.3f}".format(func.GetName(), sum_ch))
                             if sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                                 hist_name = simple_name+"-"+cat_name+"-"+postfix
                                 histogram = self.get_hist(func, obs_var, sum_ch, hist_name)
@@ -481,7 +611,8 @@ class WSReader:
                                   else:
                                     ### need to consider the syst eff for both the normalization and shape
                                     pname = "RooAddpdf_"+simple_name+"_"+cat_name
-                                    samp_pdf = ROOT.RooAddPdf(pname, pname, ROOT.RooArgList(func), ROOT.RooArgList(coeff_list[func_index]))
+                                    #samp_pdf = ROOT.RooAddPdf(pname, pname, ROOT.RooArgList(func), ROOT.RooArgList(coeff_list[func_index])) ## much slower
+                                    samp_pdf = func
                                     [hist_err, y, err] = self.create_err_from_pdf(samp_pdf, self.fit_res, histogram, histogram.GetName(), obs_var, 1)
                      
                                   all_histograms.append(hist_err)
