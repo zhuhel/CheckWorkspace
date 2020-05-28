@@ -169,7 +169,7 @@ class WSReader:
         return hist
 
     @staticmethod
-    def create_err_from_pdf(pdf, fitres, hist, hist_name, obs, nBins=0):
+    def create_err_from_pdf(pdf, fitres, hist, hist_name, obs, doIntegralOnly=1, nBins=0):
         """
         get the error band. the uncertainties are propagted via a RooFitResult
         """
@@ -177,74 +177,87 @@ class WSReader:
         if not hist:
             hist = self.create_hist_from_pdf(pdf, hist_name, obs)
  
+        [h_errors, sampleYield, sampleError]=[None, 0, 0]
+
         obs.Print()
         #get the error band
-        frame=obs.frame()
-        pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(hist.Integral(), ROOT.RooAbsReal.NumEvent))
-        h_errors_tmp=frame.getCurve()
-
-        #find all the high point in tgraph
-        yuptmp,ydowntmp=[], []
-        upYield=0
-        downYield=0
-        for ib in range(1, h_errors_tmp.GetN()/2, 2):
-          x1=ROOT.Double(0)
-          y1=ROOT.Double(0)
-          h_errors_tmp.GetPoint(ib,x1,y1)
-          yuptmp.append(y1)
-          upYield+=y1
-
-        #find all low point in tgraph
-        for ib in range(h_errors_tmp.GetN()-2, h_errors_tmp.GetN()/2, -2):
-          x1=ROOT.Double(0)
-          y1=ROOT.Double(0)
-          h_errors_tmp.GetPoint(ib,x1,y1)
-          ydowntmp.append(y1)
-          downYield+=y1
-
-        #finally make arrays storing required values
-        xs,ys,yup,ydown,xerr=[], [], [], [], []
-        for ib in range(1, hist.GetNbinsX()):
-          x=hist.GetBinCenter(ib)
-          y=hist.GetBinContent(ib)
-
-          xs.append(x)
-          ys.append(y)
-          yup.append(yuptmp[ib]-y)
-          ydown.append(y-ydowntmp[ib])
-          xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
+        if not doIntegralOnly:
+          frame=obs.frame()
+          pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(hist.Integral(), ROOT.RooAbsReal.NumEvent))
+          h_errors_tmp=frame.getCurve()
         
-        #Now make the graph
-        axs=array.array('f', xs)
-        ays=array.array('f', ys)
-        ayup=array.array('f', yup)
-        aydown=array.array('f', ydown)
-        axerr=array.array('f', xerr)
+          #find all the high point in tgraph
+          yuptmp,ydowntmp=[], []
+          upYield=0
+          downYield=0
+          for ib in range(1, h_errors_tmp.GetN()/2, 2):
+            x1=ROOT.Double(0)
+            y1=ROOT.Double(0)
+            h_errors_tmp.GetPoint(ib,x1,y1)
+            yuptmp.append(y1)
+            upYield+=y1
+        
+          #find all low point in tgraph
+          for ib in range(h_errors_tmp.GetN()-2, h_errors_tmp.GetN()/2, -2):
+            x1=ROOT.Double(0)
+            y1=ROOT.Double(0)
+            h_errors_tmp.GetPoint(ib,x1,y1)
+            ydowntmp.append(y1)
+            downYield+=y1
+        
+          #finally make arrays storing required values
+          xs,ys,yup,ydown,xerr=[], [], [], [], []
+          for ib in range(1, hist.GetNbinsX()):
+            x=hist.GetBinCenter(ib)
+            y=hist.GetBinContent(ib)
+        
+            xs.append(x)
+            ys.append(y)
+            yup.append(yuptmp[ib]-y)
+            ydown.append(y-ydowntmp[ib])
+            xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
+          
+          #Now make the graph
+          axs=array.array('f', xs)
+          ays=array.array('f', ys)
+          ayup=array.array('f', yup)
+          aydown=array.array('f', ydown)
+          axerr=array.array('f', xerr)
+        
+          h_errors=ROOT.TGraphAsymmErrors(len(xs), axs, ays, axerr, axerr, aydown, ayup)
+          h_errors.SetName("{}_err".format(hist_name))
+          h_errors.SetTitle("{}_err".format(hist_name))
+          h_errors.SetLineColor(ROOT.kBlack)
+          h_errors.SetFillColor(ROOT.kBlack)
+          h_errors.SetMarkerStyle(0)
+          h_errors.SetLineStyle(1)
+          h_errors.SetFillStyle(3004)
+        
+          postFitYield = pdf.expectedEvents(ROOT.RooArgSet(obs))
+          print("\texpectedEvents={:.4f}\n".format(postFitYield))
+          if postFitYield==0:
+            postFitYield=hist.Integral()
+          print("\tPostfit Integral={:.4f} + {:.4f} - {:.4f}\n".format(postFitYield,upYield-postFitYield,postFitYield-downYield))
 
-        h_errors=ROOT.TGraphAsymmErrors(len(xs), axs, ays, axerr, axerr, aydown, ayup)
-        h_errors.SetName("{}_err".format(hist_name))
-        h_errors.SetTitle("{}_err".format(hist_name))
-        h_errors.SetLineColor(ROOT.kBlack)
-        h_errors.SetFillColor(ROOT.kBlack)
-        h_errors.SetMarkerStyle(0)
-        h_errors.SetLineStyle(1)
-        h_errors.SetFillStyle(3004)
-
-        postFitYield = pdf.expectedEvents(ROOT.RooArgSet(obs))
-        print("\texpectedEvents={:.4f}\n".format(postFitYield))
-        if postFitYield==0:
-          postFitYield=hist.Integral()
-        print("\tPostfit Integral={:.4f} + {:.4f} - {:.4f}\n".format(postFitYield,upYield-postFitYield,postFitYield-downYield))
-
-        #Find the error on the yield
-        if nBins>0:
-          sampleIntegral= pdf.createIntegral(ROOT.RooArgSet(obs))
-          sampleYield=sampleIntegral.getVal()*nBins
-          sampleError=sampleIntegral.getPropagatedError(fitres)*nBins
-          print("\t  Another method: Postfit Integral={:.4f} +/- {:.4f} (nBins= {:.4f}\n".format(sampleYield, sampleError, nBins))
-        else:
           sampleYield=postFitYield
           sampleError=(fabs( upYield-postFitYield ) + fabs( postFitYield-downYield) )*0.5
+
+        else:
+          h_errors=None
+
+          #Find the error on the yield
+          if nBins>0:
+            sampleIntegral= pdf.createIntegral(ROOT.RooArgSet(obs))
+            sampleYield=sampleIntegral.getVal()*nBins
+            sampleError=sampleIntegral.getPropagatedError(fitres)*nBins
+
+            ##do scaling
+            nevents=hist.Integral()
+            sf=sampleYield/nevents
+            sampleYield=nevents
+            sampleError*=sf
+
+            print("\tPostfit Integral={:.4f} +/- {:.4f} (nBins= {:.4f}\n".format(sampleYield, sampleError, nBins))
 
         return [h_errors, sampleYield, sampleError]
 
@@ -527,8 +540,8 @@ class WSReader:
             hist_splusb.Print()
             ## get the error
             if self.fit_res:
-              [hist_splusb_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_splusb, hist_splusb.GetName(), obs_var, 0)
-              all_histograms.append(hist_splusb_err)
+              [hist_splusb_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_splusb, hist_splusb.GetName(), obs_var, 0, 0)
+              if hist_splusb_err: all_histograms.append(hist_splusb_err)
               if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
               self.dict_yield[cat_name]["splusb"]=[y, err]
 
@@ -543,8 +556,8 @@ class WSReader:
             hist_bonly.Print()
             ## get the error
             if self.fit_res:
-              [hist_bonly_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_bonly, hist_bonly.GetName(), obs_var, 0)
-              all_histograms.append(hist_bonly_err)
+              [hist_bonly_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_bonly, hist_bonly.GetName(), obs_var, 0, 0)
+              if hist_bonly_err: all_histograms.append(hist_bonly_err)
               if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
               self.dict_yield[cat_name]["background"]=[y, err]
 
@@ -607,15 +620,15 @@ class WSReader:
                                 ## get the error
                                 if self.fit_res:
                                   if is_sum_pdf:
-                                    [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, coeff_list[0].getVal())
+                                    [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, 1, coeff_list[0].getVal())
                                   else:
                                     ### need to consider the syst eff for both the normalization and shape
                                     pname = "RooAddpdf_"+simple_name+"_"+cat_name
                                     #samp_pdf = ROOT.RooAddPdf(pname, pname, ROOT.RooArgList(func), ROOT.RooArgList(coeff_list[func_index])) ## much slower
                                     samp_pdf = func
-                                    [hist_err, y, err] = self.create_err_from_pdf(samp_pdf, self.fit_res, histogram, histogram.GetName(), obs_var, 1)
+                                    [hist_err, y, err] = self.create_err_from_pdf(samp_pdf, self.fit_res, histogram, histogram.GetName(), obs_var, 1, 1)
                      
-                                  all_histograms.append(hist_err)
+                                  if hist_err: all_histograms.append(hist_err)
                                   if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
                                   self.dict_yield[cat_name][simple_name]=[y, err]
 
@@ -627,8 +640,8 @@ class WSReader:
                                 all_histograms.append(hist_sonlypdf)
                                 ## get the error
                                 if self.fit_res:
-                                  [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, hist_sonlypdf, hist_sonlypdf.GetName(), obs_var, 1)
-                                  all_hist_sonlypdfs.append(hist_err)
+                                  [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, hist_sonlypdf, hist_sonlypdf.GetName(), obs_var, 1, 1)
+                                  if hist_err: all_hist_sonlypdfs.append(hist_err)
                                   if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
                                   self.dict_yield[cat_name]["signal"]=[y, err]
 
@@ -661,8 +674,8 @@ class WSReader:
                         all_histograms.append(histogram)
                         ## get the error
                         if self.fit_res:
-                          [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, 1)
-                          all_histograms.append(hist_err)
+                          [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, 1, 1)
+                          if hist_err: all_histograms.append(hist_err)
                           if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
                           self.dict_yield[cat_name][simple_name]=[y, err]
 
