@@ -9,7 +9,7 @@ from checkws.ws_reader import WSReader
 import os
 import argparse
 from checkws.root_utils import redefine_range
-from checkws.root_utils import print_hist
+from checkws.root_utils import print_hist, integral_and_error
 from checkws.root_utils import sumw2
 from checkws.ploter import Ploter
 from checkws import adder
@@ -60,6 +60,7 @@ if __name__ == "__main__":
     add_arg("--xMin", help="min value of the observable", default=None, type=float)
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF')
+    add_arg("--show-yield", help='show yields/err in the legend', action='store_true')
 
     try:
         args = parser.parse_args()
@@ -277,6 +278,10 @@ if __name__ == "__main__":
 
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
+            # update yields
+            (y, err) = integral_and_error(hist_splusb)
+            if not cat_name in ws_reader.dict_yield.keys(): ws_reader.dict_yield[cat_name]={}
+            ws_reader.dict_yield[cat_name][mc]=[y, err]
 
         if len(raw_hist_list)==0: continue
 
@@ -293,13 +298,19 @@ if __name__ == "__main__":
 
         ps.color(hist_list)
         sum_bkg, hs = ps.stack(hist_list)
+        if err_prop_meth!=0:
+          sum_bkg_tmp = f_hist.Get('bonly-{}-{}__{}'.format(cat_name, postfix, obs_var.GetName()))
+          if not sum_bkg_tmp:
+            print("Error! could not find the bonly prediction. Take the sum by hand.\n")
+          else:
+            sum_bkg = sum_bkg_tmp 
         sum_bkg.SetLineColor(1)
 
         ps.prepare_2pad_canvas("canvas", 600, 600)
         ps.pad2.cd()
  
         new_data_copy = hist_data.Clone("data_copy")
-        # in the ratio panel, add a band representing data states uncertainty
+        # in the ratio panel, add a band representing systematic uncertainty of the predictions
         data_band = adder.make_error_band3(sum_bkg, center=1., width=0.)
         # only draw stat error for data/MC ratio
         sum_bkg_copy = sum_bkg.Clone("bkg_copy")
@@ -342,12 +353,52 @@ if __name__ == "__main__":
 
         #legend.AddEntry(hist_sonly, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
         if hist_sonlypdf:
-            legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), print_hist(hist_sonly, add_bkg_sys)), "L")
+            if args.show_yield:
+              out_str = ""
+              if cat_name in ws_reader.dict_yield and "signal" in ws_reader.dict_yield[cat_name]:
+                [evts, error] = ws_reader.dict_yield[cat_name]["signal"]
+                if add_sys:
+                    out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+                else:
+                    out_str = "{:.2f}".format(evts)
+              else:
+                  out_str = print_hist(hist_sonly, add_bkg_sys) 
+              legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), out_str), "L")
+            else:
+              legend.AddEntry(hist_sonlypdf, "S({:.1f})" .format(ws_reader.poi.getVal()), "L")
+
         # legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
-        legend.AddEntry(sum_bkg, "Total Bkg {}".format(print_hist(sum_bkg, add_bkg_sys)), "F")
+
+        if args.show_yield:
+          out_str = ""
+          if cat_name in ws_reader.dict_yield and "bonly" in ws_reader.dict_yield[cat_name]:
+            [evts, error] = ws_reader.dict_yield[cat_name]["bonly"]
+            if add_sys:
+                out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+            else:
+                out_str = "{:.2f}".format(evts)
+          else:
+              out_str = print_hist(sum_bkg, add_bkg_sys) 
+          legend.AddEntry(sum_bkg, "Total Bkg {}".format(out_str), "F")
+        else:
+          legend.AddEntry(sum_bkg, "Total Bkg", "F")
 
         for hist, tag in zip(hist_list, tag_list):
-            legend.AddEntry(hist, tag+" {}".format(print_hist(hist, add_bkg_sys)), "F")
+            if args.show_yield:
+              out_str = ""
+              samp = hist.GetName().split('-')[0]
+              if cat_name in ws_reader.dict_yield and samp in ws_reader.dict_yield[cat_name]:
+                [evts, error] = ws_reader.dict_yield[cat_name][samp]
+                if add_sys:
+                    out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+                else:
+                    out_str = "{:.2f}".format(evts)
+              else:
+                  out_str = print_hist(hist, add_bkg_sys) 
+
+              legend.AddEntry(hist, tag+" {}".format(out_str), "F")
+            else:
+              legend.AddEntry(hist, tag, "F")
 
         legend.Draw("same")
         ps.add_atlas()

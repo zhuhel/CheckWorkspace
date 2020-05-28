@@ -11,6 +11,7 @@ ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.ERROR)
 import os
 import array
 from math import fabs, pow, sqrt
+from root_utils import integral_and_error
 
 thispath=os.path.abspath(__file__)
 thispath=os.path.dirname(thispath)
@@ -538,11 +539,14 @@ class WSReader:
             hist_splusb.SetLineColor(206)
             all_histograms.append(hist_splusb)
             hist_splusb.Print()
+            if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
             ## get the error
             if self.fit_res:
               [hist_splusb_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_splusb, hist_splusb.GetName(), obs_var, 0, 0)
               if hist_splusb_err: all_histograms.append(hist_splusb_err)
-              if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+              self.dict_yield[cat_name]["splusb"]=[y, err]
+            else:
+              (y, err) = integral_and_error(hist_splusb)
               self.dict_yield[cat_name]["splusb"]=[y, err]
 
             # get background-only events
@@ -558,8 +562,10 @@ class WSReader:
             if self.fit_res:
               [hist_bonly_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_bonly, hist_bonly.GetName(), obs_var, 0, 0)
               if hist_bonly_err: all_histograms.append(hist_bonly_err)
-              if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
-              self.dict_yield[cat_name]["background"]=[y, err]
+              self.dict_yield[cat_name]["bonly"]=[y, err]
+            else:
+              (y, err) = integral_and_error(hist_bonly)
+              self.dict_yield[cat_name]["splusb"]=[y, err]
 
             # get signal only spectrum
             print("get signal only spectrum")
@@ -629,7 +635,9 @@ class WSReader:
                                     [hist_err, y, err] = self.create_err_from_pdf(samp_pdf, self.fit_res, histogram, histogram.GetName(), obs_var, 1, 1)
                      
                                   if hist_err: all_histograms.append(hist_err)
-                                  if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                                  self.dict_yield[cat_name][simple_name]=[y, err]
+                                else:
+                                  (y, err) = integral_and_error(histogram)
                                   self.dict_yield[cat_name][simple_name]=[y, err]
 
 
@@ -643,6 +651,9 @@ class WSReader:
                                   [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, hist_sonlypdf, hist_sonlypdf.GetName(), obs_var, 1, 1)
                                   if hist_err: all_hist_sonlypdfs.append(hist_err)
                                   if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                                  self.dict_yield[cat_name]["signal"]=[y, err]
+                                else:
+                                  (y, err) = integral_and_error(hist_sonlypdf)
                                   self.dict_yield[cat_name]["signal"]=[y, err]
 
                             yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
@@ -676,7 +687,9 @@ class WSReader:
                         if self.fit_res:
                           [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, 1, 1)
                           if hist_err: all_histograms.append(hist_err)
-                          if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                          self.dict_yield[cat_name][simple_name]=[y, err]
+                        else:
+                          (y, err) = integral_and_error(histogram)
                           self.dict_yield[cat_name][simple_name]=[y, err]
 
                     yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
