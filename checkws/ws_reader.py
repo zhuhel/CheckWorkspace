@@ -257,7 +257,7 @@ class WSReader:
             sampleYield=nevents
             sampleError*=sf
 
-            print("\tPostfit Integral={:.4f} +/- {:.4f} (nBins= {:.4f}\n".format(sampleYield, sampleError, nBins))
+            print("\tPostfit Integral={:.4f} +/- {:.4f} (nBins= {:.4f}, sf= {:.4f})\n".format(sampleYield, sampleError, nBins, sf))
 
         return [h_errors, sampleYield, sampleError]
 

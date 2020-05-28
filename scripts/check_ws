@@ -39,6 +39,7 @@ if __name__ == "__main__":
     add_arg("--floatVar", help="set variables float:  mu_ggF,mu_VBF", default=None)
     add_arg("--signalScale", help="scale factor applied to data", default=5., type=float)
     add_arg("--add-bkg-sys", help="add systematic uncertainties on background", action='store_true')
+    add_arg("--err-prop-meth", help="which method to use for error propagation (for yields and syst bands)", default=0, type=int)
 
     # fitting related
     add_arg("--afterFit", help="make plots and yields after fit", action="store_true")
@@ -71,6 +72,7 @@ if __name__ == "__main__":
     postfix = args.postfix
     verbose = args.verbose
     add_bkg_sys = args.add_bkg_sys
+    err_prop_meth = args.err_prop_meth
     force_update = args.recreate
 
     if not os.path.exists(out_dir):
@@ -155,7 +157,7 @@ if __name__ == "__main__":
         print("No systematic uncertainties on Background!")
     else:
         # get error of each NP and change them +/- 1 error
-        if not args.afterFit: ## for prefit
+        if err_prop_meth==0:
             nuisances = ws_reader.mc.GetNuisanceParameters()
             if verbose:
               nuisances.Print("v")
@@ -215,7 +217,7 @@ if __name__ == "__main__":
         exit(0)
 
     f_hist = ROOT.TFile(norm_hist_name)
-    if add_bkg_sys:
+    if add_bkg_sys and err_prop_meth==0:
         f_up = ROOT.TFile(up_hist_name)
         f_down = ROOT.TFile(down_hist_name)
 
@@ -252,7 +254,7 @@ if __name__ == "__main__":
               print ("\nWARNING!! hist not found:", hist_name, "\n")
               continue
             hist.SetDirectory(0)
-            if add_bkg_sys:
+            if add_bkg_sys and err_prop_meth==0:
                 # access up and down histograms and calculate the variations
                 hist_name = '{}-{}-{}__{}'.format(mc, cat_name, up_postfix, obs_var.GetName())
                 hist_up = f_up.Get(hist_name)
