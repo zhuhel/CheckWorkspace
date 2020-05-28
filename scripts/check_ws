@@ -121,8 +121,11 @@ if __name__ == "__main__":
     print("Binning info of observable {}: {}, {} with {} bins, bin-width: {} GeV".format(
         obs_var.GetName(), *obs_bins))
 
-
     # fitting
+    nuisances = ws_reader.mc.GetNuisanceParameters()
+    nuisance_snapshot_name = "nuisance_norminal"
+    ws_reader.ws.saveSnapshot(nuisance_snapshot_name, nuisances)
+
     snapshot_name = args.save_snapshot_to
     fitted_file_name = args.save_fitted_to
     if args.afterFit:
@@ -149,9 +152,6 @@ if __name__ == "__main__":
         print("No systematic uncertainties on Background!")
     else:
         # get error of each NP and change them +/- 1 error
-        nuisances = ws_reader.mc.GetNuisanceParameters()
-        nuisance_snapshot_name = "nuisance_norminal"
-        ws_reader.ws.saveSnapshot(nuisance_snapshot_name, nuisances)
         if not args.afterFit: ## for prefit
             if verbose:
               nuisances.Print("v")

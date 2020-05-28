@@ -338,6 +338,32 @@ class WSReader:
         iter_category = ROOT.TIter(self.categories.typeIterator())
         obj = iter_category()
 
+        if not self.fit_res:
+          if os.path.isfile(self.corr_root_path):
+              print("Reuse fitted results saved at root file: {}".format(self.corr_root_path))
+              fout_rfr = ROOT.TFile.Open(self.corr_root_path)
+              self.fit_res = fout_rfr.Get("nll_res")
+        if self.fit_res:
+          print("Load fit results")
+          self.fit_res.Print()
+          if not self.ws.loadSnapshot("vars_final"):
+            np = self.mc.GetNuisanceParameters()
+            snp_init="nuisance_norminal"
+            self.ws.loadSnapshot(snp_init)
+            print("Prefit Values:\n")
+            np.Print("v")
+            #Get Paramters from fit
+            fpf = self.fit_res.floatParsFinal().Clone()  #floating param from fit result
+            cp = self.fit_res.constPars() #constant param from fit result
+            fpf.add(cp) # add all const parameters of the RooFitResult to the floating ones
+        
+            #assign np to fitted values
+            np.assignValueOnly(fpf) # only sets the central value. Should be ok as VisualizeError uses errors from the RooFitResult, according to ROOT doc
+            print("Postfit Values:\n")
+            np.Print("v")
+            self.ws.saveSnapshot("vars_final", np)
+          self.ws.loadSnapshot("vars_final")
+
         yield_out_str = "\n"+self.fin.GetName()+"\n"
         self.hist_file_name = outname
         while obj:
@@ -370,11 +396,6 @@ class WSReader:
             all_histograms.append(hist_splusb)
             hist_splusb.Print()
             ## get the error
-            if not self.fit_res:
-              if os.path.isfile(self.corr_root_path):
-                  print("Reuse fitted results saved at root file: {}".format(self.corr_root_path))
-                  fout = ROOT.TFile.Open(self.corr_root_path)
-                  self.fit_res = fout.Get("nll_res")
             if self.fit_res:
               [hist_splusb_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_splusb, hist_splusb.GetName(), obs_var, 0)
               all_histograms.append(hist_splusb_err)
