@@ -9,6 +9,8 @@ ROOT.gErrorIgnoreLevel = ROOT.kInfo
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.ERROR)
 
 import os
+import array
+from math import fabs, pow, sqrt
 
 class WSReader:
     def __init__(self, 
@@ -47,6 +49,10 @@ class WSReader:
         self.out_dir = out_dir
         self.corr_root_path = os.path.join(self.out_dir, 'correlation.root')
         self.mc.GetParametersOfInterest().Print()
+
+        self.fit_res=None # fit result
+        # event yield
+        self.dict_yield={}
 
         # figure out the category anmes and mc samples
         self.category_names = []
@@ -157,6 +163,85 @@ class WSReader:
             print(hist.GetName(), "MISSING")
         return hist
 
+    @staticmethod
+    def create_err_from_pdf(pdf, fitres, hist, hist_name, obs, nBins=0):
+        """
+        get the error band. the uncertainties are propagted via a RooFitResult
+        """
+        print("get error for {}".format(hist_name))
+        if not hist:
+            hist = self.create_hist_from_pdf(pdf, hist_name, obs)
+ 
+        obs.Print()
+        #get the error band
+        frame=obs.frame()
+        pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(hist.Integral(), ROOT.RooAbsReal.NumEvent))
+        h_errors_tmp=frame.getCurve()
+
+        #find all the high point in tgraph
+        yuptmp,ydowntmp=[], []
+        upYield=0
+        downYield=0
+        for ib in range(1, h_errors_tmp.GetN()/2, 2):
+          x1=ROOT.Double(0)
+          y1=ROOT.Double(0)
+          h_errors_tmp.GetPoint(ib,x1,y1)
+          yuptmp.append(y1)
+          upYield+=y1
+
+        #find all low point in tgraph
+        for ib in range(h_errors_tmp.GetN()-2, h_errors_tmp.GetN()/2, -2):
+          x1=ROOT.Double(0)
+          y1=ROOT.Double(0)
+          h_errors_tmp.GetPoint(ib,x1,y1)
+          ydowntmp.append(y1)
+          downYield+=y1
+
+        #finally make arrays storing required values
+        xs,ys,yup,ydown,xerr=[], [], [], [], []
+        for ib in range(1, hist.GetNbinsX()):
+          x=hist.GetBinCenter(ib)
+          y=hist.GetBinContent(ib)
+
+          xs.append(x)
+          ys.append(y)
+          yup.append(yuptmp[ib]-y)
+          ydown.append(y-ydowntmp[ib])
+          xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
+        
+        #Now make the graph
+        axs=array.array('f', xs)
+        ays=array.array('f', ys)
+        ayup=array.array('f', yup)
+        aydown=array.array('f', ydown)
+        axerr=array.array('f', xerr)
+
+        h_errors=ROOT.TGraphAsymmErrors(len(xs), axs, ays, axerr, axerr, aydown, ayup)
+        h_errors.SetName("{}_err".format(hist_name))
+        h_errors.SetTitle("{}_err".format(hist_name))
+        h_errors.SetLineColor(ROOT.kBlack)
+        h_errors.SetFillColor(ROOT.kBlack)
+        h_errors.SetMarkerStyle(0)
+        h_errors.SetLineStyle(1)
+        h_errors.SetFillStyle(3004)
+
+        postFitYield = pdf.expectedEvents(ROOT.RooArgSet(obs))
+        if postFitYield==0:
+          postFitYield=hist.Integral()
+        print("\tPostfit Integral={:.4f} + {:.4f} - {:.4f}\n".format(postFitYield,upYield-postFitYield,postFitYield-downYield))
+
+        #Find the error on the yield
+        if nBins>0:
+          sampleIntegral= pdf.createIntegral(ROOT.RooArgSet(obs))
+          sampleYield=sampleIntegral.getVal()*nBins
+          sampleError=sampleIntegral.getPropagatedError(fitres)*nBins
+          print("\t  Another method: Postfit Integral={:.4f} +/- {:.4f} (nBins= {:.4f}\n".format(sampleYield, sampleError, nBins))
+        else:
+          sampleYield=postFitYield
+          sampleError=(fabs( upYield-postFitYield ) + fabs( postFitYield-downYield) )*0.5
+
+        return [h_errors, sampleYield, sampleError]
+
 
     def get_hist(self, pdf, obs, events, hist_name):
         hist = pdf.createHistogram(hist_name, obs, RooFit.IntrinsicBinning(),
@@ -239,8 +324,11 @@ class WSReader:
         """
         outname = os.path.join(self.out_dir, "histograms_{}.root".format(postfix))
         if os.path.exists(outname):
-            print("{} is there, ".format(outname))
-            if not force_update:
+            f_out = ROOT.TFile.Open(outname, "READ")
+            lkeys=f_out.GetListOfKeys()
+            if len(lkeys)>0 and (not force_update):
+                print("{} is there, ".format(outname))
+                f_out.Close()
                 return outname
             else:
                 print("forcing updates. May the observable range be changed?")
@@ -270,6 +358,8 @@ class WSReader:
                 hist_data.SetXTitle(obs_var.GetName())
                 data_ch.fillHistogram(hist_data, ROOT.RooArgList(obs_var))
                 all_histograms.append(hist_data)
+                if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                self.dict_yield[cat_name]["data"]=[hist_data.Integral(), 0]
 
             # get signal + background
             print("get signal + background")
@@ -279,6 +369,17 @@ class WSReader:
             hist_splusb.SetLineColor(206)
             all_histograms.append(hist_splusb)
             hist_splusb.Print()
+            ## get the error
+            if not self.fit_res:
+              if os.path.isfile(self.corr_root_path):
+                  print("Reuse fitted results saved at root file: {}".format(self.corr_root_path))
+                  fout = ROOT.TFile.Open(self.corr_root_path)
+                  self.fit_res = fout.Get("nll_res")
+            if self.fit_res:
+              [hist_splusb_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_splusb, hist_splusb.GetName(), obs_var, 0)
+              all_histograms.append(hist_splusb_err)
+              if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+              self.dict_yield[cat_name]["splusb"]=[y, err]
 
             # get background-only events
             print("get background-only events")
@@ -289,6 +390,12 @@ class WSReader:
             bonly_evts = hist_bonly.Integral()
             all_histograms.append(hist_bonly)
             hist_bonly.Print()
+            ## get the error
+            if self.fit_res:
+              [hist_bonly_err, y, err] = self.create_err_from_pdf(pdf, self.fit_res, hist_bonly, hist_bonly.GetName(), obs_var, 0)
+              all_histograms.append(hist_bonly_err)
+              if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+              self.dict_yield[cat_name]["background"]=[y, err]
 
             # get signal only spectrum
             print("get signal only spectrum")
@@ -302,6 +409,7 @@ class WSReader:
             # break down the PDF into small components
             print ("break down the PDF into small components")
             if "RooProdPdf" in pdf.ClassName():
+                print("Look at RooProdPdf pdf", pdf.GetName())
                 pdf_list = pdf.pdfList()
                 this_pdf = None
                 # skip all Gaussian constraints
@@ -323,6 +431,7 @@ class WSReader:
                             func_list = this_pdf.pdfList()
                         coeff_list = this_pdf.coefList()
                         total = 0
+                        total_err = 0
 
                         # define the function of calculate the number of events for each component
                         if is_sum_pdf:
@@ -336,28 +445,54 @@ class WSReader:
                         ):
                             func = func_list[func_index]
                             sum_ch = nevts_func(func_index)
+                            y, err = 0, 0
                             total += sum_ch
                             simple_name = func.GetName().split('_')[2]
+                            print("  Look at component", func.GetName())
                             if sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                                 hist_name = simple_name+"-"+cat_name+"-"+postfix
                                 histogram = self.get_hist(func, obs_var, sum_ch, hist_name)
                                 all_histograms.append(histogram)
+                                ## get the error
+                                if self.fit_res:
+                                  if is_sum_pdf:
+                                    [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, coeff_list[0].getVal())
+                                  else:
+                                    ### need to consider the syst eff for both the normalization and shape
+                                    pname = "RooAddpdf_"+simple_name+"_"+cat_name
+                                    samp_pdf = ROOT.RooAddPdf(pname, pname, ROOT.RooArgList(func), ROOT.RooArgList(coeff_list[func_index]))
+                                    [hist_err, y, err] = self.create_err_from_pdf(samp_pdf, self.fit_res, histogram, histogram.GetName(), obs_var, 1)
+                     
+                                  all_histograms.append(hist_err)
+                                  if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                                  self.dict_yield[cat_name][simple_name]=[y, err]
+
 
                             ## signal pdf
                             if sum_ch > 1E-5 and "signal" in func.GetName().lower():
                                 hist_name = "Signal-"+cat_name+"-"+postfix
                                 hist_sonlypdf=self.get_hist(func, obs_var, sum_ch, hist_name)
                                 all_histograms.append(hist_sonlypdf)
-                            yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
-                        yield_out_str += "total yields {:.2f}\n".format(total)
+                                ## get the error
+                                if self.fit_res:
+                                  [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, hist_sonlypdf, hist_sonlypdf.GetName(), obs_var, 1)
+                                  all_hist_sonlypdfs.append(hist_err)
+                                  if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                                  self.dict_yield[cat_name]["signal"]=[y, err]
+
+                            yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
+                            total_err = sqrt( pow(total_err, 2) + pow(err, 2) )
+                        yield_out_str += "total yields {:.2f} +/- {:.3f}\n".format(total, total_err)
                     else:
                         print("no baseline pdf avaiable!")
                         continue
 
             elif "RooAddPdf" in pdf.ClassName():
+                print("Look at RooAddPdf pdf", pdf.GetName())
                 func_list = pdf.pdfList()
                 coeff_list = pdf.coefList()
                 total = 0
+                total_err = 0
                 nevts_func = lambda k:coeff_list[k].getVal()
                 for func_index in sorted(
                     range(func_list.getSize()), key=nevts_func,
@@ -367,12 +502,21 @@ class WSReader:
                     sum_ch = nevts_func(func_index)
                     total += sum_ch
                     simple_name = func.GetName().split('_')[2]
+                    print("  Look at component", func.GetName())
                     if sum_ch > 1E-5 and "signal" not in func.GetName().lower():
                         hist_name = simple_name+"-"+cat_name+"-"+postfix
                         histogram = self.get_hist(func, obs_var, sum_ch, hist_name)
                         all_histograms.append(histogram)
-                    yield_out_str += "{} {:.2f}\n".format(func.GetName(), sum_ch)
-                yield_out_str += "total yields {:.2f}\n".format(total)
+                        ## get the error
+                        if self.fit_res:
+                          [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, histogram, histogram.GetName(), obs_var, 1)
+                          all_histograms.append(hist_err)
+                          if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
+                          self.dict_yield[cat_name][simple_name]=[y, err]
+
+                    yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
+                    total_err = sqrt( pow(total_err, 2) + pow(err, 2) )
+                yield_out_str += "total yields {:.2f} +/- {:.3f}\n".format(total, total_err)
             else:
                 print(pdf.ClassName()," should be either RooProdPdf or RooAddPdf")
             self.poi.setVal(old_poi_val)

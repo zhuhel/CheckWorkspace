@@ -152,52 +152,59 @@ if __name__ == "__main__":
         nuisances = ws_reader.mc.GetNuisanceParameters()
         nuisance_snapshot_name = "nuisance_norminal"
         ws_reader.ws.saveSnapshot(nuisance_snapshot_name, nuisances)
-        # nuisances.Print("v")
-        itr = ROOT.TIter(nuisances.createIterator())
-        var = itr()
-        while var:
-            name = var.GetName()
-            error = var.getError()
-            norm_val = var.getVal()
-            if abs(error) < 1E-10:
-                error = 1.
+        if not args.afterFit: ## for prefit
             if verbose:
-                print("{}: {} +/- {}".format(name, norm_val, error))
+              nuisances.Print("v")
+            itr = ROOT.TIter(nuisances.createIterator())
             var = itr()
-        # up
-        itr = itr.Begin()
-        var = itr()
-        while var:
-            name = var.GetName()
-            ## skip ZZ normalization factors
-            if "mu" in name and "ZZ" in name:
-              var = itr()
-              continue 
-            error = var.getError()
-            norm_val = var.getVal()
-            if abs(error) < 1E-10:
-                error = 1.
-            var.setVal(norm_val+error)
+            while var:
+                name = var.GetName()
+                error = var.getError()
+                norm_val = var.getVal()
+                if abs(error) < 1E-10:
+                    error = 1.
+                if verbose:
+                    print("{}: {} +/- {}".format(name, norm_val, error))
+                var = itr()
+            if verbose:
+              print("Vary NPs up")
+            # up
+            itr = itr.Begin()
             var = itr()
-        up_hist_name = ws_reader.loop_categories(postfix=up_postfix, force_update=force_update)
-        ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
-        # down
-        itr = itr.Begin()
-        var = itr()
-        while var:
-            name = var.GetName()
-            ## skip ZZ normalization factors
-            if "mu" in name and "ZZ" in name:
-              var = itr()
-              continue 
-            error = var.getError()
-            norm_val = var.getVal()
-            if abs(error) < 1E-10:
-                error = 1.
-            var.setVal(norm_val-error)
+            while var:
+                name = var.GetName()
+                if verbose:
+                  print("  Look at NP {}".format(name))
+                ## skip ZZ normalization factors
+                if "mu" in name and "ZZ" in name:
+                  var = itr()
+                  continue 
+                error = var.getError()
+                norm_val = var.getVal()
+                if abs(error) < 1E-10:
+                    error = 1.
+                var.setVal(norm_val+error)
+                if verbose: var.Print()
+                var = itr()
+            up_hist_name = ws_reader.loop_categories(postfix=up_postfix, force_update=force_update)
+            ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
+            # down
+            itr = itr.Begin()
             var = itr()
-        down_hist_name = ws_reader.loop_categories(postfix=down_postfix, force_update=force_update)
-        ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
+            while var:
+                name = var.GetName()
+                ## skip ZZ normalization factors
+                if "mu" in name and "ZZ" in name:
+                  var = itr()
+                  continue 
+                error = var.getError()
+                norm_val = var.getVal()
+                if abs(error) < 1E-10:
+                    error = 1.
+                var.setVal(norm_val-error)
+                var = itr()
+            down_hist_name = ws_reader.loop_categories(postfix=down_postfix, force_update=force_update)
+            ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
 
     # Now plotting
     if args.noPlot:
