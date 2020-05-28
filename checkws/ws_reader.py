@@ -357,7 +357,7 @@ class WSReader:
       it = it.Begin()
       arg = it()
       while arg:
-        arg.Print()
+        #arg.Print()
         UncertaintyName=""
         # Ignore constant parameters
         if (arg.InheritsFrom("RooRealVar") and (not arg.isConstant())):
@@ -373,7 +373,7 @@ class WSReader:
         tmpvar = itr()
         while tmpvar:
           varName=tmpvar.GetName()
-          tmpvar.Print()
+          #tmpvar.Print()
           if UncertaintyName.replace("alpha_", "") in varName:
             if "_In" in varName or "nom_" in varName:
               hasConstraint=True
@@ -431,7 +431,7 @@ class WSReader:
           sigma      = 1.0
     
         var.setError(fabs(sigma))
-        var.Print()
+        #var.Print()
         if (resetRange):
           minrange = var.getMin()
           maxrange = var.getMax()
@@ -448,19 +448,16 @@ class WSReader:
     def create_prefitres(self,):
 
       nuis = self.mc.GetNuisanceParameters()
-      #nuis.add(self.mc.GetParametersOfInterest())
+      #nuis.add(self.mc.GetParametersOfInterest()) ## doesn't matter for prefit anyway
     
       np=ROOT.RooArgList(nuis)
-      nuis.Print()
-      print("OOOO")
-      np.Print()
     
       np=self.resetError(self.ws, self.mc, np)
       rfrexp = ROOT.RooExpandedFitResult(np)
       rfrexp.Print()
       self.fit_res=rfrexp
 
-    def loop_categories(self, postfix='nominal', force_update=False):
+    def loop_categories(self, postfix='nominal', force_update=False, use_fitres=True):
         """
         make histograms for each component, save them into file [optional]
         print and save the yields
@@ -481,32 +478,33 @@ class WSReader:
         iter_category = ROOT.TIter(self.categories.typeIterator())
         obj = iter_category()
 
-        if not self.fit_res:
-          if os.path.isfile(self.corr_root_path):
-              print("Reuse fitted results saved at root file: {}".format(self.corr_root_path))
-              fout_rfr = ROOT.TFile.Open(self.corr_root_path)
-              self.fit_res = fout_rfr.Get("nll_res")
-        if self.fit_res:
-          print("Load fit results")
-          self.fit_res.Print()
-          if not self.ws.loadSnapshot("vars_final"):
-            np = self.mc.GetNuisanceParameters()
-            np.add(self.mc.GetParametersOfInterest())
-            snp_init="nuisance_norminal"
-            self.ws.loadSnapshot(snp_init)
-            print("Prefit Values:\n")
-            np.Print("v")
-            #Get Paramters from fit
-            fpf = self.fit_res.floatParsFinal().Clone()  #floating param from fit result
-            cp = self.fit_res.constPars() #constant param from fit result
-            fpf.add(cp) # add all const parameters of the RooFitResult to the floating ones
-        
-            #assign np to fitted values
-            np.assignValueOnly(fpf) # only sets the central value. Should be ok as VisualizeError uses errors from the RooFitResult, according to ROOT doc
-            print("Postfit Values:\n")
-            np.Print("v")
-            self.ws.saveSnapshot("vars_final", np)
-          self.ws.loadSnapshot("vars_final")
+        if use_fitres:
+          if not self.fit_res:
+            if os.path.isfile(self.corr_root_path):
+                print("Reuse fitted results saved at root file: {}".format(self.corr_root_path))
+                fout_rfr = ROOT.TFile.Open(self.corr_root_path)
+                self.fit_res = fout_rfr.Get("nll_res")
+          if self.fit_res:
+            print("Load fit results")
+            self.fit_res.Print()
+            if not self.ws.loadSnapshot("vars_final"):
+              np = self.mc.GetNuisanceParameters()
+              np.add(self.mc.GetParametersOfInterest())
+              snp_init="nuisance_norminal"
+              self.ws.loadSnapshot(snp_init)
+              print("Prefit Values:\n")
+              np.Print("v")
+              #Get Paramters from fit
+              fpf = self.fit_res.floatParsFinal().Clone()  #floating param from fit result
+              cp = self.fit_res.constPars() #constant param from fit result
+              fpf.add(cp) # add all const parameters of the RooFitResult to the floating ones
+          
+              #assign np to fitted values
+              np.assignValueOnly(fpf) # only sets the central value. Should be ok as VisualizeError uses errors from the RooFitResult, according to ROOT doc
+              print("Postfit Values:\n")
+              np.Print("v")
+              self.ws.saveSnapshot("vars_final", np)
+            self.ws.loadSnapshot("vars_final")
 
         yield_out_str = "\n"+self.fin.GetName()+"\n"
         self.hist_file_name = outname
