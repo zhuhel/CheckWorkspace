@@ -118,7 +118,10 @@ if __name__ == "__main__":
         ovar = oitr()
 
     obs_var = ws_reader.mc.GetObservables().first()
+    obs_var.Print()
     redefine_range(obs_var, args.nBins, args.xMax, args.xMin)
+    print("nBins= {}, xmin={}, xmax={}".format(args.nBins, args.xMax, args.xMin))
+    obs_var.Print()
     obs_bin_width = (obs_var.getMax() - obs_var.getMin()) / obs_var.getBins()
     obs_bins = (obs_var.getMin(), obs_var.getMax(), obs_var.getBins(), obs_bin_width)
     print("Binning info of observable {}: {}, {} with {} bins, bin-width: {} GeV".format(
@@ -277,6 +280,7 @@ if __name__ == "__main__":
                 for ibin in range(hist.GetNbinsX()):
                     hist.SetBinError(ibin+1, 1E-6)
 
+            hist = ws_reader.translate_binning(hist, cat_name)
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
             # update yields
@@ -292,9 +296,13 @@ if __name__ == "__main__":
         tag_list = [raw_tag_list[idx] for idx in sorted_idx]
 
         hist_data = f_hist.Get("data-{}-{}".format(cat_name, postfix))
+        hist_data = ws_reader.translate_binning(hist_data, cat_name)
         hist_splusb = f_hist.Get("splusb-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
+        hist_splusb = ws_reader.translate_binning(hist_splusb, cat_name)
         hist_sonlypdf = f_hist.Get("Signal-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
+        hist_sonlypdf = ws_reader.translate_binning(hist_sonlypdf, cat_name)
         hist_sonly = f_hist.Get("signalOnly-{}-{}".format(cat_name, postfix))
+        hist_sonly = ws_reader.translate_binning(hist_sonly, cat_name)
         sumw2(hist_data)
 
         ps.color(hist_list)
@@ -305,6 +313,7 @@ if __name__ == "__main__":
             print("Error! could not find the bonly prediction. Take the sum by hand.\n")
           else:
             sum_bkg = sum_bkg_tmp 
+            sum_bkg = ws_reader.translate_binning(sum_bkg, cat_name)
         sum_bkg.Print("All")
         sum_bkg.SetLineColor(1)
 

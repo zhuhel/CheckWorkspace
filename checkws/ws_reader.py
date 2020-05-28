@@ -146,6 +146,72 @@ class WSReader:
             name, value = poi_str.strip().split('=')
             self.fix_var(name, float(value))
 
+    def translate_binning(self, hist, cate='ggF'):
+        """
+        for 2l2v mainly, where variable binning used
+        """
+        #TODO: hardcoded binning
+        dbin_ggF_llvv = [0., 50., 100., 150., 200., 250., 300., 350., 400., 450., 500., 550., 600., 650., 700., 750., 800., 850., 900., 950., 1000., 1100., 1200., 1300., 1400., 1600., 1800., 2000.]
+        dbin_VBF_llvv = [0., 100., 420., 540., 820., 1700.]
+       
+        if 'ggF' in cate:
+            dbin = dbin_ggF_llvv
+        elif 'VBF' in cate:
+            dbin = dbin_VBF_llvv
+
+        if not hist: return hist
+        name = hist.GetName()
+        name = name + "_newbinning"
+         
+        if isinstance(hist, ROOT.TH1): 
+          if not hist or hist.GetNbinsX() > 28: return hist
+          new_hist = ROOT.TH1F(name, name, ( len(dbin)-1), array.array('d',dbin))
+          for i in range(len(dbin)-1):
+              #print("translate_binning:", hist.GetName(), i, hist.GetBinContent(i+1))
+              new_hist.SetBinContent(i+1, hist.GetBinContent(i+1))
+              new_hist.SetBinError(i+1, hist.GetBinError(i+1))
+              new_hist.SetXTitle("mT")
+         
+          return new_hist
+
+        ## Tgraph
+        if isinstance(hist, ROOT.TGraphAsymmErrors):
+          new_hist = hist.Clone()
+          new_hist.SetName(name)
+          new_hist.SetTitle(name)
+          for i in range(hist.GetN()):
+            ibin = i
+            x, y = ROOT.Double_t(), ROOT.Double_t()
+            hist.GetPoint(ibin, x, y)
+            ex_up, ex_dn, ey_up, dy_dn = hist.GetErrorXhigh(ibin), hist.GetErrorXlow(ibin), hist.GetErrorYhigh(ibin), hist.GetErrorYlow(ibin)
+            # do the translation
+            n_x, n_ex_dn, n_ex_up, = x, ex_dn, ex_up
+            if x >0 and x < len(dbin)-1:
+              n_x = (dbin[i-1] + dbin[i])*0.5
+              n_ex_dn = n_x - dbin[i-1]
+              n_ex_up = dbin[i] - n_x
+            else:
+              if x<0: # underflow
+                n_x = dbin[0] - 1
+                n_ex_dn, n_ex_up=1, 1
+              else: # overlfow
+                n_x = dbin[-1] + 1
+                n_ex_dn, n_ex_up=1, 1
+   
+            r_up = 0
+            r_down = 0
+            content=y
+            if content!=0:
+              r_up = e_up/content
+              r_down = e_down/content
+            new_hist.SetPoint(i, n_x, 1.)
+            new_hist.SetPointEXhigh(ibin, n_ex_up)
+            new_hist.SetPointEXlow(ibin, n_ex_dn)
+            new_hist.SetPointEYhigh(ibin, ey_up)
+            new_hist.SetPointEYlow(ibin, ey_dn)
+
+        return new_hist
+
     def float_var(self, var_name):
         obj = self.ws.var(var_name.strip())
         if obj:
@@ -181,58 +247,74 @@ class WSReader:
         [h_errors, sampleYield, sampleError]=[None, 0, 0]
 
         obs.Print()
+        obs_binning=obs.getBinning()
+        #ba=obs_binning.array()
+        #for i in range(obs.getBins()): print(ba[i])
+        hist.Print("All")
+
         #get the error band
         if not doIntegralOnly:
           frame=obs.frame()
           pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(hist.Integral(), ROOT.RooAbsReal.NumEvent))
           h_errors_tmp=frame.getCurve()
+          if not h_errors_tmp:
+            print("Error=> could not get the postfit error for {}, {}\n".format(hist_name, pdf.GetName()))
+          else:
+            #find all the high point in tgraph
+            yuptmp,ydowntmp=[], []
+            upYield=0
+            downYield=0
+            ne=h_errors_tmp.GetN()
+            nescan=ne/2
+            if ne>=4*(obs.getBins()): ## TODO: why is it like this??
+              step=2 
+            else:  step=1
+            print("check ne={}, step={}".format(ne, step))
+            
+            #for ib in range(1, h_errors_tmp.GetN()/2, 2):
+            for ib in range(1, nescan, step):
+              x1=ROOT.Double(0)
+              y1=ROOT.Double(0)
+              h_errors_tmp.GetPoint(ib,x1,y1)
+              yuptmp.append(y1)
+              upYield+=y1
         
-          #find all the high point in tgraph
-          yuptmp,ydowntmp=[], []
-          upYield=0
-          downYield=0
-          for ib in range(1, h_errors_tmp.GetN()/2, 2):
-            x1=ROOT.Double(0)
-            y1=ROOT.Double(0)
-            h_errors_tmp.GetPoint(ib,x1,y1)
-            yuptmp.append(y1)
-            upYield+=y1
+            #find all low point in tgraph
+            #for ib in range(h_errors_tmp.GetN()-2, h_errors_tmp.GetN()/2, -2):
+            for ib in range(h_errors_tmp.GetN()-2, nescan, -step):
+              x1=ROOT.Double(0)
+              y1=ROOT.Double(0)
+              h_errors_tmp.GetPoint(ib,x1,y1)
+              ydowntmp.append(y1)
+              downYield+=y1
         
-          #find all low point in tgraph
-          for ib in range(h_errors_tmp.GetN()-2, h_errors_tmp.GetN()/2, -2):
-            x1=ROOT.Double(0)
-            y1=ROOT.Double(0)
-            h_errors_tmp.GetPoint(ib,x1,y1)
-            ydowntmp.append(y1)
-            downYield+=y1
+            #finally make arrays storing required values
+            xs,ys,yup,ydown,xerr=[], [], [], [], []
+            for ib in range(1, hist.GetNbinsX()):
+              x=hist.GetBinCenter(ib)
+              y=hist.GetBinContent(ib)
         
-          #finally make arrays storing required values
-          xs,ys,yup,ydown,xerr=[], [], [], [], []
-          for ib in range(1, hist.GetNbinsX()):
-            x=hist.GetBinCenter(ib)
-            y=hist.GetBinContent(ib)
+              xs.append(x)
+              ys.append(y)
+              yup.append(yuptmp[ib]-y)
+              ydown.append(y-ydowntmp[ib])
+              xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
+            
+            #Now make the graph
+            axs=array.array('f', xs)
+            ays=array.array('f', ys)
+            ayup=array.array('f', yup)
+            aydown=array.array('f', ydown)
+            axerr=array.array('f', xerr)
         
-            xs.append(x)
-            ys.append(y)
-            yup.append(yuptmp[ib]-y)
-            ydown.append(y-ydowntmp[ib])
-            xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
-          
-          #Now make the graph
-          axs=array.array('f', xs)
-          ays=array.array('f', ys)
-          ayup=array.array('f', yup)
-          aydown=array.array('f', ydown)
-          axerr=array.array('f', xerr)
-        
-          h_errors=ROOT.TGraphAsymmErrors(len(xs), axs, ays, axerr, axerr, aydown, ayup)
-          h_errors.SetName("{}_err".format(hist_name))
-          h_errors.SetTitle("{}_err".format(hist_name))
-          h_errors.SetLineColor(ROOT.kBlack)
-          h_errors.SetFillColor(ROOT.kBlack)
-          h_errors.SetMarkerStyle(0)
-          h_errors.SetLineStyle(1)
-          h_errors.SetFillStyle(3004)
+            h_errors=ROOT.TGraphAsymmErrors(len(xs), axs, ays, axerr, axerr, aydown, ayup)
+            h_errors.SetName("{}_err".format(hist_name))
+            h_errors.SetTitle("{}_err".format(hist_name))
+            h_errors.SetLineColor(ROOT.kBlack)
+            h_errors.SetFillColor(ROOT.kBlack)
+            h_errors.SetMarkerStyle(0)
+            h_errors.SetLineStyle(1)
+            h_errors.SetFillStyle(3004)
         
           postFitYield = pdf.expectedEvents(ROOT.RooArgSet(obs))
           print("\texpectedEvents={:.4f}\n".format(postFitYield))
