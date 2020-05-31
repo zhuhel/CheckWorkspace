@@ -351,8 +351,9 @@ if __name__ == "__main__":
             sum_bkg.SetFillStyle(3004)
             sum_bkg.SetFillColor(1)
             sum_bkg.SetLineColor(1)
+            sum_bkg.SetLineStyle(1)
             sum_bkg.SetMarkerSize(0)
-            sum_bkg.Draw("EP same")
+            sum_bkg.Draw("E2 same")
 
             hist_data.Draw("AXISsame")
             hist_data.Draw("EPsame")
