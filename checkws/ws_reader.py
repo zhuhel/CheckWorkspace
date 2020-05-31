@@ -247,6 +247,7 @@ class WSReader:
         #ba=obs_binning.array()
         #for i in range(obs.getBins()): print(ba[i])
         hist.Print()
+        hist.Print("All")
 
         #get the error band
         if not doIntegralOnly:
@@ -289,7 +290,7 @@ class WSReader:
             
             #finally make arrays storing required values
             xs,ys,yup,ydown,xerr=[], [], [], [], []
-            for ib in range(1, hist.GetNbinsX()):
+            for ib in range(1, hist.GetNbinsX()+1):
               x=hist.GetBinCenter(ib)
               y=hist.GetBinContent(ib)
         
@@ -301,9 +302,9 @@ class WSReader:
               upYield+=yyup
               downYield+=yydn
         
-              yup.append(yuptmp[ib]-y)
-              ydown.append(y-ydowntmp[ib])
-              print("CHECK error: bin={}, x={}, y={}, x_up={}, y_up={}, x_dn={}, y_dn={}, yup={}, ydown={}".format(ib, x, y, xuptmp[ib], yuptmp[ib], xdowntmp[ib], ydowntmp[ib], yuptmp[ib]-y, y-ydowntmp[ib]))
+              yup.append(yyup-y)
+              ydown.append(y-yydn)
+              print("CHECK error: bin={}, x={}, y={}, x_up={}, y_up={}, yv_up={}, x_dn={}, y_dn={}, yv_dn={}, yup={}, ydown={}".format(ib, x, y, xuptmp[ib], yuptmp[ib], yyup, xdowntmp[ib], ydowntmp[ib], yydn, yyup-y, y-yydn))
               xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
             
             #Now make the graph
