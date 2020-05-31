@@ -146,7 +146,8 @@ class WSReader:
             name, value = poi_str.strip().split('=')
             self.fix_var(name, float(value))
 
-    def translate_binning(self, hist, cate='ggF'):
+    @staticmethod
+    def translate_binning(hist, cate='ggF'):
         """
         for 2l2v mainly, where variable binning used
         """
@@ -181,15 +182,15 @@ class WSReader:
           new_hist.SetTitle(name)
           for i in range(hist.GetN()):
             ibin = i
-            x, y = ROOT.Double_t(), ROOT.Double_t()
+            x, y = ROOT.Double(), ROOT.Double()
             hist.GetPoint(ibin, x, y)
-            ex_up, ex_dn, ey_up, dy_dn = hist.GetErrorXhigh(ibin), hist.GetErrorXlow(ibin), hist.GetErrorYhigh(ibin), hist.GetErrorYlow(ibin)
+            ex_up, ex_dn, ey_up, ey_dn = hist.GetErrorXhigh(ibin), hist.GetErrorXlow(ibin), hist.GetErrorYhigh(ibin), hist.GetErrorYlow(ibin)
             # do the translation
             n_x, n_ex_dn, n_ex_up, = x, ex_dn, ex_up
             if x >0 and x < len(dbin)-1:
-              n_x = (dbin[i-1] + dbin[i])*0.5
-              n_ex_dn = n_x - dbin[i-1]
-              n_ex_up = dbin[i] - n_x
+              n_x = (dbin[i] + dbin[i+1])*0.5
+              n_ex_dn = n_x - dbin[i]
+              n_ex_up = dbin[i+1] - n_x
             else:
               if x<0: # underflow
                 n_x = dbin[0] - 1
@@ -197,14 +198,9 @@ class WSReader:
               else: # overlfow
                 n_x = dbin[-1] + 1
                 n_ex_dn, n_ex_up=1, 1
+            print("Check translatin: i={}, x={}, y={}, ey_up={}, ey_dn={}, n_x={}, n_ex_up={}, n_ex_dn={}".format(ibin, x, y, ey_up, ey_dn, n_x, n_ex_up, n_ex_dn))
    
-            r_up = 0
-            r_down = 0
-            content=y
-            if content!=0:
-              r_up = e_up/content
-              r_down = e_down/content
-            new_hist.SetPoint(i, n_x, 1.)
+            new_hist.SetPoint(i, n_x, y)
             new_hist.SetPointEXhigh(ibin, n_ex_up)
             new_hist.SetPointEXlow(ibin, n_ex_dn)
             new_hist.SetPointEYhigh(ibin, ey_up)
@@ -266,31 +262,31 @@ class WSReader:
             upYield=0
             downYield=0
             ne=h_errors_tmp.GetN()
-            nescan=ne/2
-            if ne>=4*(obs.getBins()): ## TODO: why is it like this??
-              step=2 
-            else:  step=1
-            print("check ne={}, step={}".format(ne, step))
-            
-            #for ib in range(1, h_errors_tmp.GetN()/2, 2):
-            for ib in range(1, nescan, step):
+    
+            for ib in range(1, ne/2): # 0-th is the underflow
               x1=ROOT.Double(0)
               y1=ROOT.Double(0)
               h_errors_tmp.GetPoint(ib,x1,y1)
               yuptmp.append(y1)
               xuptmp.append(x1)
-              upYield+=y1
         
             #find all low point in tgraph
-            #for ib in range(h_errors_tmp.GetN()-2, h_errors_tmp.GetN()/2, -2):
-            for ib in range(h_errors_tmp.GetN()-2, nescan, -step):
+            for ib in range(ne-2, ne/2-1, -1): # last one is the overflow
               x1=ROOT.Double(0)
               y1=ROOT.Double(0)
               h_errors_tmp.GetPoint(ib,x1,y1)
               ydowntmp.append(y1)
               xdowntmp.append(x1)
-              downYield+=y1
         
+            #make two TGraphs, one for up and one for down variations
+            n_up, n_dn = len(xuptmp), len(xdowntmp)
+            gr_up = ROOT.TGraph(n_up)
+            gr_dn = ROOT.TGraph(n_dn)
+            for i in range(n_up):
+              gr_up.SetPoint(i, xuptmp[i], yuptmp[i])
+            for i in range(n_dn):
+              gr_dn.SetPoint(i, xdowntmp[i], ydowntmp[i])
+            
             #finally make arrays storing required values
             xs,ys,yup,ydown,xerr=[], [], [], [], []
             for ib in range(1, hist.GetNbinsX()):
@@ -299,6 +295,12 @@ class WSReader:
         
               xs.append(x)
               ys.append(y)
+              ## get the up/down values
+              yyup=gr_up.Eval(x)
+              yydn=gr_dn.Eval(x)
+              upYield+=yyup
+              downYield+=yydn
+        
               yup.append(yuptmp[ib]-y)
               ydown.append(y-ydowntmp[ib])
               print("CHECK error: bin={}, x={}, y={}, x_up={}, y_up={}, x_dn={}, y_dn={}, yup={}, ydown={}".format(ib, x, y, xuptmp[ib], yuptmp[ib], xdowntmp[ib], ydowntmp[ib], yuptmp[ib]-y, y-ydowntmp[ib]))

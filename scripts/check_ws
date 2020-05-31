@@ -307,6 +307,7 @@ if __name__ == "__main__":
 
         ps.color(hist_list)
         sum_bkg, hs = ps.stack(hist_list)
+        sum_bkg_copy = sum_bkg.Clone("bkg_copy")
         if err_prop_meth!=0:
           sum_bkg_tmp = f_hist.Get('bonly-{}-{}__{}_err'.format(cat_name, postfix, obs_var.GetName()))
           if not sum_bkg_tmp:
@@ -326,7 +327,6 @@ if __name__ == "__main__":
         # in the ratio panel, add a band representing systematic uncertainty of the predictions
         data_band = adder.make_error_band3(sum_bkg, center=1., width=0.)
         # only draw stat error for data/MC ratio
-        sum_bkg_copy = sum_bkg.Clone("bkg_copy")
         for ibin in range(sum_bkg_copy.GetNbinsX()): sum_bkg_copy.SetBinError(ibin, 1E-6) 
         ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", 0.50, 2.0)
         data_band.Draw("E2 same")
