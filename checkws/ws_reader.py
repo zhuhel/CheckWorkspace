@@ -327,6 +327,7 @@ class WSReader:
             h_errors.SetLineStyle(1)
             h_errors.SetFillStyle(3004)
         
+          # this is like the error from the envelope
           postFitYield = pdf.expectedEvents(ROOT.RooArgSet(obs))
           print("\texpectedEvents={:.4f}\n".format(postFitYield))
           if postFitYield==0:
