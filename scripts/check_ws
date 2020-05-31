@@ -308,11 +308,13 @@ if __name__ == "__main__":
         ps.color(hist_list)
         sum_bkg, hs = ps.stack(hist_list)
         if err_prop_meth!=0:
-          sum_bkg_tmp = f_hist.Get('bonly-{}-{}__{}'.format(cat_name, postfix, obs_var.GetName()))
+          sum_bkg_tmp = f_hist.Get('bonly-{}-{}__{}_err'.format(cat_name, postfix, obs_var.GetName()))
           if not sum_bkg_tmp:
             print("Error! could not find the bonly prediction. Take the sum by hand.\n")
           else:
             sum_bkg = sum_bkg_tmp 
+            print("CHECK before translation:")
+            sum_bkg.Print("All")
             sum_bkg = ws_reader.translate_binning(sum_bkg, cat_name)
         sum_bkg.Print("All")
         sum_bkg.SetLineColor(1)

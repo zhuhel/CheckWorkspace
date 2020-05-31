@@ -250,7 +250,7 @@ class WSReader:
         obs_binning=obs.getBinning()
         #ba=obs_binning.array()
         #for i in range(obs.getBins()): print(ba[i])
-        hist.Print("All")
+        hist.Print()
 
         #get the error band
         if not doIntegralOnly:
@@ -262,6 +262,7 @@ class WSReader:
           else:
             #find all the high point in tgraph
             yuptmp,ydowntmp=[], []
+            xuptmp,xdowntmp=[], []
             upYield=0
             downYield=0
             ne=h_errors_tmp.GetN()
@@ -277,6 +278,7 @@ class WSReader:
               y1=ROOT.Double(0)
               h_errors_tmp.GetPoint(ib,x1,y1)
               yuptmp.append(y1)
+              xuptmp.append(x1)
               upYield+=y1
         
             #find all low point in tgraph
@@ -286,6 +288,7 @@ class WSReader:
               y1=ROOT.Double(0)
               h_errors_tmp.GetPoint(ib,x1,y1)
               ydowntmp.append(y1)
+              xdowntmp.append(x1)
               downYield+=y1
         
             #finally make arrays storing required values
@@ -298,6 +301,7 @@ class WSReader:
               ys.append(y)
               yup.append(yuptmp[ib]-y)
               ydown.append(y-ydowntmp[ib])
+              print("CHECK error: bin={}, x={}, y={}, x_up={}, y_up={}, x_dn={}, y_dn={}, yup={}, ydown={}".format(ib, x, y, xuptmp[ib], yuptmp[ib], xdowntmp[ib], ydowntmp[ib], yuptmp[ib]-y, y-ydowntmp[ib]))
               xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
             
             #Now make the graph
@@ -336,7 +340,7 @@ class WSReader:
 
             ##do scaling
             nevents=hist.Integral()
-            sf=sampleYield/nevents
+            sf=nevents/sampleYield
             sampleYield=nevents
             sampleError*=sf
 
