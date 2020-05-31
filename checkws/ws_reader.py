@@ -154,6 +154,9 @@ class WSReader:
         #TODO: hardcoded binning
         dbin_ggF_llvv = [0., 50., 100., 150., 200., 250., 300., 350., 400., 450., 500., 550., 600., 650., 700., 750., 800., 850., 900., 950., 1000., 1100., 1200., 1300., 1400., 1600., 1800., 2000.]
         dbin_VBF_llvv = [0., 100., 420., 540., 820., 1700.]
+
+        #TODO: hardcoded category names
+        if not ("eevv" in cate or "mmvv" in cate): return hist
        
         if 'ggF' in cate:
             dbin = dbin_ggF_llvv
@@ -165,6 +168,7 @@ class WSReader:
         name = name + "_newbinning"
          
         if isinstance(hist, ROOT.TH1): 
+          # for 2l2v only
           if not hist or hist.GetNbinsX() > 28: return hist
           new_hist = ROOT.TH1F(name, name, ( len(dbin)-1), array.array('d',dbin))
           for i in range(len(dbin)-1):
