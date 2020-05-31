@@ -727,9 +727,10 @@ class WSReader:
                                     ### get error on yield directly
                                     err2 = coeff_list[func_index].getPropagatedError(self.fit_res)
                                     print("Check error: y={}, err={}, err2={}".format(y, err, err2))
+                                    err = err2
                      
                                   if hist_err: all_histograms.append(hist_err)
-                                  self.dict_yield[cat_name][simple_name]=[y, err2]
+                                  self.dict_yield[cat_name][simple_name]=[y, err]
                                 else:
                                   (y, err) = integral_and_error(histogram)
                                   self.dict_yield[cat_name][simple_name]=[y, err]
@@ -745,6 +746,8 @@ class WSReader:
                                   [hist_err, y, err] = self.create_err_from_pdf(func, self.fit_res, hist_sonlypdf, hist_sonlypdf.GetName(), obs_var, 1, 1)
                                   ### get error on yield directly
                                   err2 = coeff_list[func_index].getPropagatedError(self.fit_res)
+                                  print("Check error: y={}, err={}, err2={}".format(y, err, err2))
+                                  err = err2
                                   if hist_err: all_hist_sonlypdfs.append(hist_err)
                                   if cat_name not in self.dict_yield: self.dict_yield[cat_name]={}
                                   self.dict_yield[cat_name]["signal"]=[y, err2]
