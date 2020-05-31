@@ -314,10 +314,8 @@ if __name__ == "__main__":
             print("Error! could not find the bonly prediction. Take the sum by hand.\n")
           else:
             sum_bkg = sum_bkg_tmp 
-            print("CHECK before translation:")
-            sum_bkg.Print("All")
             sum_bkg = ws_reader.translate_binning(sum_bkg, cat_name)
-        sum_bkg.Print("All")
+        if verbose: sum_bkg.Print("All")
         sum_bkg.SetLineColor(1)
 
         ps.prepare_2pad_canvas("canvas", 600, 600)
@@ -350,10 +348,10 @@ if __name__ == "__main__":
 
 
             # show error band for the total background curve
-            sum_bkg.SetFillStyle(3244)
-            sum_bkg.SetFillColor(2)
-            sum_bkg.SetLineColor(2)
-            sum_bkg.SetMarkerSize(0.01)
+            sum_bkg.SetFillStyle(3004)
+            sum_bkg.SetFillColor(1)
+            sum_bkg.SetLineColor(1)
+            sum_bkg.SetMarkerSize(0)
             sum_bkg.Draw("EP same")
 
             hist_data.Draw("AXISsame")
@@ -386,21 +384,6 @@ if __name__ == "__main__":
         # S+B
         # legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
 
-        # sum of bkg
-        if args.show_yield:
-          out_str = ""
-          if cat_name in ws_reader.dict_yield and "bonly" in ws_reader.dict_yield[cat_name]:
-            [evts, error] = ws_reader.dict_yield[cat_name]["bonly"]
-            if add_sys:
-                out_str = "{:.2f} \pm {:.2f}".format(evts, error)
-            else:
-                out_str = "{:.2f}".format(evts)
-          else:
-              out_str = print_hist(sum_bkg, add_bkg_sys) 
-          legend.AddEntry(sum_bkg, "Total Bkg {}".format(out_str), "F")
-        else:
-          legend.AddEntry(sum_bkg, "Total Bkg", "F")
-
         # add each component of the prediction to the legend
         for hist, tag in zip(hist_list, tag_list):
             if args.show_yield:
@@ -418,6 +401,22 @@ if __name__ == "__main__":
               legend.AddEntry(hist, tag+" {}".format(out_str), "F")
             else:
               legend.AddEntry(hist, tag, "F")
+
+        # sum of bkg
+        if args.show_yield:
+          out_str = ""
+          if cat_name in ws_reader.dict_yield and "bonly" in ws_reader.dict_yield[cat_name]:
+            [evts, error] = ws_reader.dict_yield[cat_name]["bonly"]
+            if add_sys:
+                out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+            else:
+                out_str = "{:.2f}".format(evts)
+          else:
+              out_str = print_hist(sum_bkg, add_bkg_sys) 
+          legend.AddEntry(sum_bkg, "Total Bkg {}".format(out_str), "F")
+        else:
+          legend.AddEntry(sum_bkg, "Uncertainty", "F")
+
 
         legend.Draw("same")
         ps.add_atlas()

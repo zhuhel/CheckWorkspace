@@ -154,7 +154,6 @@ def make_error_band3(hist, center, width, scale=1.):
         if content!=0:
           r_up = ey_up/content
           r_dn = ey_dn/content
-        print("Check ratio: i={}, x={}, y={}, ey_up={}, ey_dn={}, r_up={}, r_dn={}".format(ibin, x, y, ey_up, ey_dn, r_up, r_dn))
         h_err.SetPoint(i, x, 1.)
         h_err.SetPointEXhigh(ibin, ex_up)
         h_err.SetPointEXlow(ibin, ex_dn)

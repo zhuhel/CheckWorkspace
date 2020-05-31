@@ -246,12 +246,13 @@ class WSReader:
  
         [h_errors, sampleYield, sampleError]=[None, 0, 0]
 
+        debug = False
         obs.Print()
         obs_binning=obs.getBinning()
         #ba=obs_binning.array()
         #for i in range(obs.getBins()): print(ba[i])
         hist.Print()
-        hist.Print("All")
+        if debug: hist.Print("All")
 
         #get the error band
         if not doIntegralOnly:
@@ -308,7 +309,7 @@ class WSReader:
         
               yup.append(yyup-y)
               ydown.append(y-yydn)
-              print("CHECK error: bin={}, x={}, y={}, x_up={}, y_up={}, yv_up={}, x_dn={}, y_dn={}, yv_dn={}, yup={}, ydown={}".format(ib, x, y, xuptmp[ib], yuptmp[ib], yyup, xdowntmp[ib], ydowntmp[ib], yydn, yyup-y, y-yydn))
+              if debug: print("CHECK error: bin={}, x={}, y={}, x_up={}, y_up={}, yv_up={}, x_dn={}, y_dn={}, yv_dn={}, yup={}, ydown={}".format(ib, x, y, xuptmp[ib], yuptmp[ib], yyup, xdowntmp[ib], ydowntmp[ib], yydn, yyup-y, y-yydn))
               xerr.append(hist.GetBinCenter(ib)-hist.GetBinLowEdge(ib))
             
             #Now make the graph
