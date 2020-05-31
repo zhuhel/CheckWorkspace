@@ -684,16 +684,26 @@ class WSReader:
 
                 if this_pdf:
                     this_pdf_class_name = this_pdf.ClassName()
+                    # get normalization terms for all components
+                    norm_list = ROOT.RooArgList()
                     if "RooRealSumPdf" in this_pdf_class_name or\
                        "RooAddPdf" in this_pdf_class_name:
                         is_sum_pdf = "RooRealSumPdf" in this_pdf_class_name
+                        coeff_list = this_pdf.coefList()
                         if is_sum_pdf:
                             func_list = this_pdf.funcList()
                         else:
                             func_list = this_pdf.pdfList()
-                        coeff_list = this_pdf.coefList()
+                            norm_list = coeff_list    
                         total = 0
                         total_err = 0
+
+                        # get total yield and error
+                        total2, total_err2 = 0, 0
+                        if norm_list.getSize()>0:
+                            normSum = ROOT.RooAddition("normSum", "normSum", norm_list)
+                            total2 = normSum.getVal()
+                            total_err2 = normSum.getPropagatedError(self.fit_res) 
 
                         # define the function of calculate the number of events for each component
                         if is_sum_pdf:
@@ -758,7 +768,10 @@ class WSReader:
 
                             yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
                             total_err = sqrt( pow(total_err, 2) + pow(err, 2) )
-                        yield_out_str += "total yields {:.2f} +/- {:.3f}\n".format(total, total_err)
+                        yield_out_str += "summed yields {:.2f} +/- {:.3f}\n".format(total, total_err)
+                        if not is_sum_pdf:
+                            yield_out_str += "total yields {:.2f} +/- {:.3f}\n".format(total2, total_err2)
+                            print("Check total error: total={}, total_err={}, total2={}, total_err2={}".format(total, total_err, total2, total_err2))
                     else:
                         print("no baseline pdf avaiable!")
                         continue
