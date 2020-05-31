@@ -283,10 +283,11 @@ if __name__ == "__main__":
             hist = ws_reader.translate_binning(hist, cat_name)
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
-            # update yields
-            (y, err) = integral_and_error(hist)
-            if not cat_name in ws_reader.dict_yield.keys(): ws_reader.dict_yield[cat_name]={}
-            ws_reader.dict_yield[cat_name][mc]=[y, err]
+            if add_bkg_sys and err_prop_meth==0:
+              # update yields
+              (y, err) = integral_and_error(hist)
+              if not cat_name in ws_reader.dict_yield.keys(): ws_reader.dict_yield[cat_name]={}
+              ws_reader.dict_yield[cat_name][mc]=[y, err]
 
         if len(raw_hist_list)==0: continue
 
