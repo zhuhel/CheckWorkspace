@@ -148,8 +148,8 @@ class Ploter:
                   highPointsY=[]
                   for ip in range(len(highPoints)):
                     highPointsY.append(y_max*0.9)
-                  highMarker = ROOT.TGraph(len(highPoints), array.array('f', highPoints), array.array('f', highPointsY))
-                  highMarker.SetMarkerColor(kBlue)
+                  highMarker = ROOT.TGraph(len(highPoints), array('f', highPoints), array('f', highPointsY))
+                  highMarker.SetMarkerColor(ROOT.kBlue)
                   highMarker.SetMarkerStyle(26)
                   highMarker.Draw("sameP")
                 
@@ -157,8 +157,8 @@ class Ploter:
                   lowPointsY=[]
                   for ip in range(len(lowPoints)):
                     lowPointsY.append(y_min*1.1)
-                  lowMarker = ROOT.TGraph(len(lowPoints), array.array('f', lowPoints), array.array('f', lowPointsY))
-                  lowMarker.SetMarkerColor(kBlue)
+                  lowMarker = ROOT.TGraph(len(lowPoints), array('f', lowPoints), array('f', lowPointsY))
+                  lowMarker.SetMarkerColor(ROOT.kBlue)
                   lowMarker.SetMarkerStyle(36)
                   lowMarker.Draw("sameP")
 
