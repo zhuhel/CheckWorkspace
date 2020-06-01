@@ -62,6 +62,8 @@ if __name__ == "__main__":
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF')
     add_arg("--show-yield", help='show yields/err in the legend', action='store_true')
     add_arg("--divide-binw", help='divide bin content by the bin width', action='store_true')
+    add_arg("--rMax", help="max value of the data/MC ratio", default=2., type=float)
+    add_arg("--rMin", help="min value of the data/MC ratio", default=0.5, type=float)
 
     try:
         args = parser.parse_args()
@@ -328,8 +330,10 @@ if __name__ == "__main__":
         data_band = adder.make_error_band3(sum_bkg, center=1., width=0.)
         # only draw stat error for data/MC ratio
         for ibin in range(sum_bkg_copy.GetNbinsX()): sum_bkg_copy.SetBinError(ibin, 1E-6) 
-        ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", 0.50, 2.0)
+        ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", args.rMin, args.rMax)
         data_band.Draw("E2 same")
+        if verbose:
+          data_band.Print("All")
 
         ps.pad1.cd()
         ps.get_offset(hist_splusb)

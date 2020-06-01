@@ -266,7 +266,9 @@ class WSReader:
         #get the error band
         if not doIntegralOnly:
           frame=obs.frame()
-          pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(hist.Integral(), ROOT.RooAbsReal.NumEvent))
+          #pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(hist.Integral(), ROOT.RooAbsReal.NumEvent))
+          ## this seems to give more reasonable error bands
+          pdf.plotOn(frame, ROOT.RooFit.VisualizeError(fitres,1), ROOT.RooFit.FillColor(ROOT.kBlack), ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(1, ROOT.RooAbsReal.RelativeExpected))
           h_errors_tmp=frame.getCurve()
           if not h_errors_tmp:
             print("Error=> could not get the postfit error for {}, {}\n".format(hist_name, pdf.GetName()))
