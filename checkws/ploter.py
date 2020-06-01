@@ -131,7 +131,37 @@ class Ploter:
 
                 self.totalObj.append(this_hist)
                 #this_hist.Draw("HIST SAME")
-                this_hist.Draw("EP SAME")
+                this_hist.Draw("E0P SAME") # E0 means to Draw error bars even the point is out of range
+                
+                ## add some indicators for points out of range
+                highPoints, lowPoints=[], []
+                for ib in range(1, this_hist.GetNbinsX()+1):
+                  y = this_hist.GetBinContent(ib)
+                  ye = this_hist.GetBinError(ib)
+                  if(y==0): continue ## no data events
+                  topEdge = y+this_hist.GetBinErrorUp(ib)
+                  bottomEdge = y-this_hist.GetBinErrorLow(ib)
+                  if(bottomEdge>y_max): highPoints.append(this_hist.GetBinCenter(ib))
+                  if(topEdge<y_min):    lowPoints.append(this_hist.GetBinCenter(ib))
+                              
+                if(len(highPoints)>0):
+                  highPointsY=[]
+                  for ip in range(len(highPoints)):
+                    highPointsY.append(y_max*0.9)
+                  highMarker = ROOT.TGraph(len(highPoints), array.array('f', highPoints), array.array('f', highPointsY))
+                  highMarker.SetMarkerColor(kBlue)
+                  highMarker.SetMarkerStyle(26)
+                  highMarker.Draw("sameP")
+                
+                if(len(lowPoints)>0):
+                  lowPointsY=[]
+                  for ip in range(len(lowPoints)):
+                    lowPointsY.append(y_min*1.1)
+                  lowMarker = ROOT.TGraph(len(lowPoints), array.array('f', lowPoints), array.array('f', lowPointsY))
+                  lowMarker.SetMarkerColor(kBlue)
+                  lowMarker.SetMarkerStyle(36)
+                  lowMarker.Draw("sameP")
+
         adder.add_line(h_refer, 1.0)
 
 
