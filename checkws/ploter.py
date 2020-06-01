@@ -131,7 +131,37 @@ class Ploter:
 
                 self.totalObj.append(this_hist)
                 #this_hist.Draw("HIST SAME")
-                this_hist.Draw("EP SAME")
+                this_hist.Draw("E0P SAME") # E0 means to Draw error bars even the point is out of range
+                
+                ## add some indicators for points out of range
+                highPoints, lowPoints=[], []
+                for ib in range(1, this_hist.GetNbinsX()+1):
+                  y = this_hist.GetBinContent(ib)
+                  ye = this_hist.GetBinError(ib)
+                  if(y==0): continue ## no data events
+                  topEdge = y+this_hist.GetBinErrorUp(ib)
+                  bottomEdge = y-this_hist.GetBinErrorLow(ib)
+                  if(bottomEdge>y_max): highPoints.append(this_hist.GetBinCenter(ib))
+                  if(topEdge<y_min):    lowPoints.append(this_hist.GetBinCenter(ib))
+                              
+                if(len(highPoints)>0):
+                  highPointsY=[]
+                  for ip in range(len(highPoints)):
+                    highPointsY.append(y_max*0.9)
+                  highMarker = ROOT.TGraph(len(highPoints), array('f', highPoints), array('f', highPointsY))
+                  highMarker.SetMarkerColor(ROOT.kBlue)
+                  highMarker.SetMarkerStyle(26)
+                  highMarker.Draw("sameP")
+                
+                if(len(lowPoints)>0):
+                  lowPointsY=[]
+                  for ip in range(len(lowPoints)):
+                    lowPointsY.append(y_min*1.1)
+                  lowMarker = ROOT.TGraph(len(lowPoints), array('f', lowPoints), array('f', lowPointsY))
+                  lowMarker.SetMarkerColor(ROOT.kBlue)
+                  lowMarker.SetMarkerStyle(36)
+                  lowMarker.Draw("sameP")
+
         adder.add_line(h_refer, 1.0)
 
 
@@ -334,7 +364,7 @@ class Ploter:
             hist.SetMarkerSize(0.5)
             hist.SetLineStyle(self.LINE_STYLE[i])
 
-    def set_y_range(self, hist_list, is_logY):
+    def set_y_range(self, hist_list, is_logY, divide_binW=False):
         hist = hist_list[0]
         y_max = max(hist_list, key=lambda x: x.GetMaximum()).GetMaximum()
         y_min = min(hist_list, key=lambda x: x.GetMinimum()).GetMinimum()
@@ -345,12 +375,15 @@ class Ploter:
             else:
                 self.can.SetLogy()
 
-            #hist.GetYaxis().SetRangeUser(1E-3, y_max*1e2)
 	    if y_min==0: y_min = max(hist_list, key=lambda x: x.GetMinimum()).GetMinimum()
 	    if y_min==0: 
 	        hist.GetYaxis().SetRangeUser(1E-2, y_max*1e2)
 	    else:
 	        hist.GetYaxis().SetRangeUser(y_min, y_max*1e2)
+            #if divide_binW:
+            #  hist.GetYaxis().SetRangeUser(4E-5, y_max*1e2)
+            #else:
+            #  hist.GetYaxis().SetRangeUser(4E-3, y_max*1e2)
         else:
             if y_min < 0:
                 y_min *= 1.1

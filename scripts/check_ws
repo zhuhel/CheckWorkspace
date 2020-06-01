@@ -62,6 +62,9 @@ if __name__ == "__main__":
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF, VBFH, ggH')
     add_arg("--show-yield", help='show yields/err in the legend', action='store_true')
+    add_arg("--divide-binw", help='divide bin content by the bin width', action='store_true')
+    add_arg("--rMax", help="max value of the data/MC ratio", default=2., type=float)
+    add_arg("--rMin", help="min value of the data/MC ratio", default=0.5, type=float)
 
     try:
         args = parser.parse_args()
@@ -284,7 +287,7 @@ if __name__ == "__main__":
                 for ibin in range(hist.GetNbinsX()):
                     hist.SetBinError(ibin+1, 1E-6)
 
-            hist = ws_reader.translate_binning(hist, cat_name)
+            hist = ws_reader.translate_binning(hist, cat_name, args.divide_binw)
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
             if add_bkg_sys and err_prop_meth==0:
@@ -301,16 +304,13 @@ if __name__ == "__main__":
         tag_list = [raw_tag_list[idx] for idx in sorted_idx]
 
         hist_data = f_hist.Get("data-{}-{}".format(cat_name, postfix))
-	#for i in range(hist_data.GetNbinsX()):
-	    #print("before translate_binning:", hist_data.GetName(), i, hist_data.GetBinContent(i+1), hist_data.GetBinError(i+1))
-	    #hist_data.SetBinError(i+1, math.sqrt(hist_data.GetBinContent(i+1))) 
-	hist_data = ws_reader.translate_binning(hist_data, cat_name)
+        hist_data = ws_reader.translate_binning(hist_data, cat_name, args.divide_binw)
         hist_splusb = f_hist.Get("splusb-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
-	hist_splusb = ws_reader.translate_binning(hist_splusb, cat_name)
+        hist_splusb = ws_reader.translate_binning(hist_splusb, cat_name, args.divide_binw)
         hist_sonlypdf = f_hist.Get("Signal-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
-	hist_sonlypdf = ws_reader.translate_binning(hist_sonlypdf, cat_name)
+        hist_sonlypdf = ws_reader.translate_binning(hist_sonlypdf, cat_name, args.divide_binw)
         hist_sonly = f_hist.Get("signalOnly-{}-{}".format(cat_name, postfix))
-	hist_sonly = ws_reader.translate_binning(hist_sonly, cat_name)
+        hist_sonly = ws_reader.translate_binning(hist_sonly, cat_name, args.divide_binw)
         sumw2(hist_data)
 
         ps.color(hist_list)
@@ -322,7 +322,7 @@ if __name__ == "__main__":
             print("Error! could not find the bonly prediction. Take the sum by hand.\n")
           else:
             sum_bkg = sum_bkg_tmp 
-            sum_bkg = ws_reader.translate_binning(sum_bkg, cat_name)
+            sum_bkg = ws_reader.translate_binning(sum_bkg, cat_name, args.divide_binw)
         if verbose: sum_bkg.Print("All")
         sum_bkg.SetLineColor(1)
 
@@ -334,22 +334,23 @@ if __name__ == "__main__":
         data_band = adder.make_error_band3(sum_bkg, center=1., width=0.)
         # only draw stat error for data/MC ratio
         for ibin in range(sum_bkg_copy.GetNbinsX()): sum_bkg_copy.SetBinError(ibin, 1E-6) 
-        #for ibin in range(sum_bkg_copy.GetNbinsX()): 
-	#    teste = sum_bkg_copy.GetBinError(ibin+1)
-	#    testc = sum_bkg_copy.GetBinContent(ibin+1)
-	#    if testc!=0: testr = teste/testc
-	#    else: testr = 1.0
-	#    print("ibin = ", ibin, ", error = ", teste, ", content = ", testc, ", ratio = ", testr)
-	#    sum_bkg_copy.SetBinError(ibin, 1E-6) 
-        ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", 0.50, 2.0)
+        ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", args.rMin, args.rMax)
         data_band.Draw("E2 same")
+        if verbose:
+          data_band.Print("All")
 
         ps.pad1.cd()
         ps.get_offset(hist_splusb)
-        ps.set_y_range([hist_data, hist_splusb], args.logY)
+        ps.set_y_range([hist_data, hist_splusb], args.logY, args.divide_binw)
         hist_data.SetXTitle(obs_var.GetName())
         #hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
         hist_data.SetYTitle("Events")
+        if obs_bin_width==1: ## most likely variable bin size used
+            hist_data.SetYTitle("Events / Bin")
+        else:
+            hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
+        if args.divide_binw:
+            hist_data.SetYTitle("Events / GeV")
 
         if hist_data:
             legend = ps.get_legend(len(hist_list) + 3)
