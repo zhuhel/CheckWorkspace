@@ -109,11 +109,11 @@ def make_error_band3(hist, center, width, scale=1.):
     y = array('d')
     up = array('d')
     down = array('d')
-    sumw2(hist)
     name = hist.GetName()
     name = name + "_relative_syst"
     ## hist
     if isinstance(hist, ROOT.TH1):
+      sumw2(hist)
       h_err = ROOT.TGraphAsymmErrors(hist)
       h_err.SetName(name)
       h_err.SetTitle(name)
@@ -146,20 +146,20 @@ def make_error_band3(hist, center, width, scale=1.):
       h_err.SetTitle(name)
       for i in range(hist.GetN()):
         ibin = i
-        x, y = ROOT.Double_t(), ROOT.Double_t()
+        x, y = ROOT.Double(), ROOT.Double()
         hist.GetPoint(ibin, x, y)
-        ex_up, ex_dn, ey_up, dy_dn = hist.GetErrorXhigh(ibin), hist.GetErrorXlow(ibin), hist.GetErrorYhigh(ibin), hist.GetErrorYlow(ibin)
+        ex_up, ex_dn, ey_up, ey_dn = hist.GetErrorXhigh(ibin), hist.GetErrorXlow(ibin), hist.GetErrorYhigh(ibin), hist.GetErrorYlow(ibin)
         r_up = 0
-        r_down = 0
+        r_dn = 0
         content=y
         if content!=0:
-          r_up = e_up/content
-          r_down = e_down/content
+          r_up = ey_up/content
+          r_dn = ey_dn/content
         h_err.SetPoint(i, x, 1.)
         h_err.SetPointEXhigh(ibin, ex_up)
         h_err.SetPointEXlow(ibin, ex_dn)
-        h_err.SetPointEYhigh(ibin, ey_up)
-        h_err.SetPointEYlow(ibin, ey_dn)
+        h_err.SetPointEYhigh(ibin, r_up)
+        h_err.SetPointEYlow(ibin, r_dn)
 
     h_err.SetLineColor(1)
     h_err.SetMarkerStyle(0)

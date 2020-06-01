@@ -9,10 +9,11 @@ from checkws.ws_reader import WSReader
 import os
 import argparse
 from checkws.root_utils import redefine_range
-from checkws.root_utils import print_hist
+from checkws.root_utils import print_hist, integral_and_error
 from checkws.root_utils import sumw2
 from checkws.ploter import Ploter
 from checkws import adder
+import math
 
 import ROOT
 ROOT.gROOT.SetBatch()
@@ -39,12 +40,15 @@ if __name__ == "__main__":
     add_arg("--floatVar", help="set variables float:  mu_ggF,mu_VBF", default=None)
     add_arg("--signalScale", help="scale factor applied to data", default=5., type=float)
     add_arg("--add-bkg-sys", help="add systematic uncertainties on background", action='store_true')
+    add_arg("--err-prop-meth", help="which method to use for error propagation (for yields and syst bands)", default=0, type=int)
 
     # fitting related
     add_arg("--afterFit", help="make plots and yields after fit", action="store_true")
     add_arg("--save-fitted-to", help='save fitted results to a ROOT file', default='fitted.root')
     add_arg('--save-snapshot-to', help='snapshot name of fitted results', default='nllFit')
     add_arg("--conditionalFit", help="in conditional fit, POI is set to constant", action="store_true")
+    add_arg("--fixShapeNPs", help="set all shape syst NPs as constants", action="store_true")
+    add_arg("--fixAllNPs", help="set all syst NPs (shape and norm) as constants", action="store_true")
     add_arg("--matrix", help="plot covariance matrix", action='store_true')
 
     ## for plotting
@@ -57,7 +61,7 @@ if __name__ == "__main__":
     add_arg("--xMin", help="min value of the observable", default=200, type=float)
     add_arg("--logY", help="if log scale for y-axis", action="store_true")
     add_arg("--signal-mc", help='signal MC names', default='VBF, ggF, VBFH, ggH')
-    #add_arg("--signal-mc", help='signal MC names', default='ggF, ggH')
+    add_arg("--show-yield", help='show yields/err in the legend', action='store_true')
 
     try:
         args = parser.parse_args()
@@ -70,6 +74,7 @@ if __name__ == "__main__":
     postfix = args.postfix
     verbose = args.verbose
     add_bkg_sys = args.add_bkg_sys
+    err_prop_meth = args.err_prop_meth
     force_update = args.recreate
 
     if not os.path.exists(out_dir):
@@ -82,7 +87,11 @@ if __name__ == "__main__":
         data_name=args.dataname,
         poi_name=args.poi_name
     )
-    if not ws_reader.data or not ws_reader.poi:
+    if not ws_reader.data:
+        print (" Erorro: data not found", args.dataname)
+        exit(1)
+    if not ws_reader.poi:
+        print (" Erorro: POI not found", args.poi_name)
         exit(1)
 
     print("Categories:", ws_reader.category_names)
@@ -93,7 +102,6 @@ if __name__ == "__main__":
     ws_reader.poi.setVal(args.signalScale)
     print ("poi: ")
     ws_reader.poi.Print()
-    ws_reader.init_NPs()
 
     if args.fixVar:
         ws_reader.fix_var_str(args.fixVar)
@@ -108,11 +116,6 @@ if __name__ == "__main__":
       ovar = oitr()
       while ovar:
         ovar.Print()
-        #if "Cat" not in ovar.GetName():
-        #   obs_bin_width = (ovar.getMax() - ovar.getMin()) / ovar.getBins()
-        #   obs_bins = (ovar.getMin(), ovar.getMax(), ovar.getBins(), obs_bin_width)
-        #   print("Binning info of observable {}: {}, {} with {} bins, bin-width: {} GeV".format(
-        #       ovar.GetName(), *obs_bins))
         ovar = oitr()
 
     obs_4l = ws_reader.ws.var("m4l")
@@ -120,6 +123,12 @@ if __name__ == "__main__":
     obs_var = ws_reader.mc.GetObservables().first()
 
     # fitting
+    nuisances = ws_reader.mc.GetNuisanceParameters()
+    np = ROOT.RooArgSet(nuisances)
+    np.add(ws_reader.mc.GetParametersOfInterest()) ## floating ZZ factors are NOT treated as NPs, sigh..
+    nuisance_snapshot_name = "nuisance_norminal"
+    ws_reader.ws.saveSnapshot(nuisance_snapshot_name, np)
+
     snapshot_name = args.save_snapshot_to
     fitted_file_name = args.save_fitted_to
     mu_VBF = ws_reader.ws.var("mu_VBF")
@@ -127,14 +136,24 @@ if __name__ == "__main__":
     if not mu_VBF: mu_VBF = ws_reader.ws.var("XS_VBF")
     if not mu_ggF: mu_ggF = ws_reader.ws.var("XS_ggF")
     if mu_VBF: 
-        mu_VBF.setMin(0.)
+        mu_VBF.setMin(-5.)
     if mu_ggF: 
-        mu_ggF.setMin(0.)
+        mu_ggF.setMin(-5.)
 
     if args.afterFit:
         if args.conditionalFit:
             ws_reader.fix_var(ws_reader.poi.GetName(), ws_reader.poi.getVal())
+        if args.fixShapeNPs:
+            ws_reader.fix_shapeNPs()
+            if args.floatVar:
+                ws_reader.float_var_str(args.floatVar)
+        if args.fixAllNPs:
+            ws_reader.fix_allNPs()
+            if args.floatVar:
+                ws_reader.float_var_str(args.floatVar)
         ws_reader.fit(snapshot_name, save_to_file=fitted_file_name, do_matrix=args.matrix)
+    else:
+        ws_reader.create_prefitres() 
 
     # make histograms
     norm_hist_name = ws_reader.loop_categories(postfix=postfix, force_update=force_update)
@@ -147,77 +166,67 @@ if __name__ == "__main__":
         print("No systematic uncertainties on Background!")
     else:
         # get error of each NP and change them +/- 1 error
-        nuisances = ws_reader.mc.GetNuisanceParameters()
-        nuisance_snapshot_name = "nuisance_norminal"
-        ws_reader.ws.saveSnapshot(nuisance_snapshot_name, nuisances)
-        # nuisances.Print("v")
-        itr = ROOT.TIter(nuisances.createIterator())
-        var = itr()
-        while var:
-            name = var.GetName()
-            error = var.getError()
-            norm_val = var.getVal()
-            if abs(error) < 1E-10:
-                error = 1.
+        if err_prop_meth==0:
+            nuisances = ws_reader.mc.GetNuisanceParameters()
             if verbose:
-                print("{}: {} +/- {}".format(name, norm_val, error))
+              nuisances.Print("v")
+            itr = ROOT.TIter(nuisances.createIterator())
             var = itr()
-	muZZs = ["muZZ_VBF", "muZZ_rest", "muZZ_ggF", "muZZ", "mu_llll_ZZ_VBF", "mu_llll_ZZ_ggF", "mu_llll_ZZ_rest", "mu_llvv_ZZ", "mu_llll_ZZ"]
-        # up
-        itr = itr.Begin()
-        var = itr()
-        while var:
-            name = var.GetName()
-            ## skip ZZ normalization factors
-            if "mu" in name and "ZZ" in name:
-              var = itr()
-              continue 
-            error = var.getError()
-            norm_val = var.getVal()
-            if abs(error) < 1E-10:
-                error = 1.
-            var.setVal(norm_val+error)
-            var = itr()
-	for vname in muZZs:
-	    var = ws_reader.ws.var(vname)
-	    if var:
+            while var:
+                name = var.GetName()
                 error = var.getError()
                 norm_val = var.getVal()
+                if abs(error) < 1E-10:
+                    error = 1.
+                if verbose:
+                    print("{}: {} +/- {}".format(name, norm_val, error))
+                var = itr()
+            if verbose:
+              print("Vary NPs up")
+            # up
+            itr = itr.Begin()
+            var = itr()
+            while var:
+                name = var.GetName()
+                if verbose:
+                  print("  Look at NP {}".format(name))
+                ## skip ZZ normalization factors
+                if ("mu" in name and "ZZ" in name) or (name in args.fixVar):
+                  var = itr()
+                  continue 
+                error = var.getError()
+                norm_val = var.getVal()
+                if abs(error) < 1E-10:
+                    error = 1.
                 var.setVal(norm_val+error)
-        up_hist_name = ws_reader.loop_categories(postfix=up_postfix, force_update=force_update)
-        ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
-        # down
-        itr = itr.Begin()
-        var = itr()
-        while var:
-            name = var.GetName()
-            ## skip ZZ normalization factors
-            if "mu" in name and "ZZ" in name:
-              var = itr()
-              continue 
-            error = var.getError()
-            norm_val = var.getVal()
-            if "mu" in name and "ZZ" in name:
-	        print(name, error)
-            if abs(error) < 1E-10:
-                error = 1.
-            var.setVal(norm_val-error)
+                if verbose: var.Print()
+                var = itr()
+            up_hist_name = ws_reader.loop_categories(postfix=up_postfix, force_update=force_update, use_fitres=False)
+            ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
+            # down
+            itr = itr.Begin()
             var = itr()
-	for vname in muZZs:
-	    var = ws_reader.ws.var(vname)
-	    if var:
+            while var:
+                name = var.GetName()
+                ## skip ZZ normalization factors
+                if ("mu" in name and "ZZ" in name) or (name in args.fixVar):
+                  var = itr()
+                  continue 
                 error = var.getError()
                 norm_val = var.getVal()
+                if abs(error) < 1E-10:
+                    error = 1.
                 var.setVal(norm_val-error)
-        down_hist_name = ws_reader.loop_categories(postfix=down_postfix, force_update=force_update)
-        ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
+                var = itr()
+            down_hist_name = ws_reader.loop_categories(postfix=down_postfix, force_update=force_update, use_fitres=False)
+            ws_reader.ws.loadSnapshot(nuisance_snapshot_name)
 
     # Now plotting
     if args.noPlot:
         exit(0)
 
     f_hist = ROOT.TFile(norm_hist_name)
-    if add_bkg_sys:
+    if add_bkg_sys and err_prop_meth==0:
         f_up = ROOT.TFile(up_hist_name)
         f_down = ROOT.TFile(down_hist_name)
 
@@ -233,18 +242,17 @@ if __name__ == "__main__":
         raw_tag_list = []
         # get the correct obs based on different channels
         if obs_vars.getSize()>1:
-            oitr = ROOT.TIter(obs_vars.createIterator())
+          oitr = ROOT.TIter(obs_vars.createIterator())
+          ovar = oitr()
+          while ovar:
+            name = ovar.GetName()
+            if "llll" in cat_name and "m4l" in name:
+              obs_var=ovar
+              break
+            if "llvv" in cat_name and "mT" in name:
+              obs_var=ovar
+              break
             ovar = oitr()
-            while ovar:
-              name = ovar.GetName()
-              if "llll" in cat_name and "m4l" in name:
-                obs_var=ovar
-	        #redefine_range(obs_var, args.nBins, args.xMax, args.xMin)
-                break
-              if "llvv" in cat_name and "mT" in name:
-                obs_var=ovar
-                break
-              ovar = oitr()
 
         for mc in ws_reader.mc_samples:
             if mc in signal_mcs:
@@ -255,7 +263,7 @@ if __name__ == "__main__":
               print ("\nWARNING!! hist not found:", hist_name, "\n")
               continue
             hist.SetDirectory(0)
-            if add_bkg_sys:
+            if add_bkg_sys and err_prop_meth==0:
                 # access up and down histograms and calculate the variations
                 hist_name = '{}-{}-{}__{}'.format(mc, cat_name, up_postfix, obs_var.GetName())
                 hist_up = f_up.Get(hist_name)
@@ -276,9 +284,14 @@ if __name__ == "__main__":
                 for ibin in range(hist.GetNbinsX()):
                     hist.SetBinError(ibin+1, 1E-6)
 
-	    hist = ws_reader.translate_binning(hist, cat_name)
+            hist = ws_reader.translate_binning(hist, cat_name)
             raw_hist_list.append(hist)
             raw_tag_list.append(mc)
+            if add_bkg_sys and err_prop_meth==0:
+              # update yields
+              (y, err) = integral_and_error(hist)
+              if not cat_name in ws_reader.dict_yield.keys(): ws_reader.dict_yield[cat_name]={}
+              ws_reader.dict_yield[cat_name][mc]=[y, err]
 
         if len(raw_hist_list)==0: continue
 
@@ -288,6 +301,9 @@ if __name__ == "__main__":
         tag_list = [raw_tag_list[idx] for idx in sorted_idx]
 
         hist_data = f_hist.Get("data-{}-{}".format(cat_name, postfix))
+	#for i in range(hist_data.GetNbinsX()):
+	    #print("before translate_binning:", hist_data.GetName(), i, hist_data.GetBinContent(i+1), hist_data.GetBinError(i+1))
+	    #hist_data.SetBinError(i+1, math.sqrt(hist_data.GetBinContent(i+1))) 
 	hist_data = ws_reader.translate_binning(hist_data, cat_name)
         hist_splusb = f_hist.Get("splusb-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
 	hist_splusb = ws_reader.translate_binning(hist_splusb, cat_name)
@@ -299,17 +315,32 @@ if __name__ == "__main__":
 
         ps.color(hist_list)
         sum_bkg, hs = ps.stack(hist_list)
+        sum_bkg_copy = sum_bkg.Clone("bkg_copy")
+        if err_prop_meth!=0:
+          sum_bkg_tmp = f_hist.Get('bonly-{}-{}__{}_err'.format(cat_name, postfix, obs_var.GetName()))
+          if not sum_bkg_tmp:
+            print("Error! could not find the bonly prediction. Take the sum by hand.\n")
+          else:
+            sum_bkg = sum_bkg_tmp 
+            sum_bkg = ws_reader.translate_binning(sum_bkg, cat_name)
+        if verbose: sum_bkg.Print("All")
         sum_bkg.SetLineColor(1)
 
         ps.prepare_2pad_canvas("canvas", 600, 600)
         ps.pad2.cd()
  
         new_data_copy = hist_data.Clone("data_copy")
-        # in the ratio panel, add a band representing data states uncertainty
+        # in the ratio panel, add a band representing systematic uncertainty of the predictions
         data_band = adder.make_error_band3(sum_bkg, center=1., width=0.)
         # only draw stat error for data/MC ratio
-        sum_bkg_copy = sum_bkg.Clone("bkg_copy")
         for ibin in range(sum_bkg_copy.GetNbinsX()): sum_bkg_copy.SetBinError(ibin, 1E-6) 
+        #for ibin in range(sum_bkg_copy.GetNbinsX()): 
+	#    teste = sum_bkg_copy.GetBinError(ibin+1)
+	#    testc = sum_bkg_copy.GetBinContent(ibin+1)
+	#    if testc!=0: testr = teste/testc
+	#    else: testr = 1.0
+	#    print("ibin = ", ibin, ", error = ", teste, ", content = ", testc, ", ratio = ", testr)
+	#    sum_bkg_copy.SetBinError(ibin, 1E-6) 
         ps.add_ratio_panel([new_data_copy, sum_bkg_copy], "Data/MC", 0.50, 2.0)
         data_band.Draw("E2 same")
 
@@ -322,7 +353,10 @@ if __name__ == "__main__":
 
         if hist_data:
             legend = ps.get_legend(len(hist_list) + 3)
-            legend.AddEntry(hist_data, "Data {:.0f}".format(hist_data.Integral()), "LP")
+            if args.show_yield:
+              legend.AddEntry(hist_data, "Data {:.0f}".format(hist_data.Integral()), "LP")
+            else:
+              legend.AddEntry(hist_data, "Data", "LP")
             hist_data.SetMarkerStyle(20)
             hist_data.SetMarkerSize(1)
             hist_data.Draw("EP")
@@ -330,11 +364,12 @@ if __name__ == "__main__":
 
 
             # show error band for the total background curve
-            sum_bkg.SetFillStyle(3244)
-            sum_bkg.SetFillColor(2)
-            sum_bkg.SetLineColor(2)
-            sum_bkg.SetMarkerSize(0.01)
-            sum_bkg.Draw("EP same")
+            sum_bkg.SetFillStyle(3004)
+            sum_bkg.SetFillColor(1)
+            sum_bkg.SetLineColor(1)
+            sum_bkg.SetLineStyle(1)
+            sum_bkg.SetMarkerSize(0)
+            sum_bkg.Draw("E2 same")
 
             hist_data.Draw("AXISsame")
             hist_data.Draw("EPsame")
@@ -347,14 +382,58 @@ if __name__ == "__main__":
             if hist_sonlypdf:
                 hist_sonlypdf.Draw("HIST same")
 
-        #legend.AddEntry(hist_sonly, "S({:.1f}) {:.1f}" .format(self.poi.getVal(), hist_sonly.Integral()), "L")
+        # signal only
         if hist_sonlypdf:
-            legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), print_hist(hist_sonly, add_bkg_sys)), "L")
-        # legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
-        legend.AddEntry(sum_bkg, "Total Bkg {}".format(print_hist(sum_bkg, add_bkg_sys)), "F")
+            if args.show_yield:
+              out_str = ""
+              if cat_name in ws_reader.dict_yield and "signal" in ws_reader.dict_yield[cat_name]:
+                [evts, error] = ws_reader.dict_yield[cat_name]["signal"]
+                if add_sys:
+                    out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+                else:
+                    out_str = "{:.2f}".format(evts)
+              else:
+                  out_str = print_hist(hist_sonly, add_bkg_sys) 
+              legend.AddEntry(hist_sonlypdf, "S({:.1f}) {}" .format(ws_reader.poi.getVal(), out_str), "L")
+            else:
+              legend.AddEntry(hist_sonlypdf, "S({:.1f})" .format(ws_reader.poi.getVal()), "L")
 
+        # S+B
+        # legend.AddEntry(hist_splusb, "S({:.1f})+B {}" .format(ws_reader.poi.getVal(), print_hist(hist_splusb, add_bkg_sys)), "L")
+
+        # add each component of the prediction to the legend
         for hist, tag in zip(hist_list, tag_list):
-            legend.AddEntry(hist, tag+" {}".format(print_hist(hist, add_bkg_sys)), "F")
+            if args.show_yield:
+              out_str = ""
+              samp = hist.GetName().split('-')[0]
+              if cat_name in ws_reader.dict_yield and samp in ws_reader.dict_yield[cat_name]:
+                [evts, error] = ws_reader.dict_yield[cat_name][samp]
+                if add_sys:
+                    out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+                else:
+                    out_str = "{:.2f}".format(evts)
+              else:
+                  out_str = print_hist(hist, add_bkg_sys) 
+
+              legend.AddEntry(hist, tag+" {}".format(out_str), "F")
+            else:
+              legend.AddEntry(hist, tag, "F")
+
+        # sum of bkg
+        if args.show_yield:
+          out_str = ""
+          if cat_name in ws_reader.dict_yield and "bonly" in ws_reader.dict_yield[cat_name]:
+            [evts, error] = ws_reader.dict_yield[cat_name]["bonly"]
+            if add_sys:
+                out_str = "{:.2f} \pm {:.2f}".format(evts, error)
+            else:
+                out_str = "{:.2f}".format(evts)
+          else:
+              out_str = print_hist(sum_bkg, add_bkg_sys) 
+          legend.AddEntry(sum_bkg, "Total Bkg {}".format(out_str), "F")
+        else:
+          legend.AddEntry(sum_bkg, "Uncertainty", "F")
+
 
         legend.Draw("same")
         ps.add_atlas()
@@ -364,6 +443,6 @@ if __name__ == "__main__":
         #ps.can.SaveAs(os.path.join(ws_reader.out_dir, "{}.eps".format(cat_name)))   
 
     f_hist.Close()
-    if add_bkg_sys:
+    if add_bkg_sys and err_prop_meth==0:
         f_up.Close()
         f_down.Close()
