@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="plot the pull plot")
     add_arg = parser.add_argument
     #add_arg('input_file', help='workspace after fitting')
-    add_arg("-m", '--message', default='background-only fit')
+    add_arg("-m", '--message', default='')
     add_arg("-f", '--input_file', default='correlation.root')
     args = parser.parse_args()
 
