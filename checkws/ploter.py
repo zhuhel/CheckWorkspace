@@ -334,7 +334,7 @@ class Ploter:
             hist.SetMarkerSize(0.5)
             hist.SetLineStyle(self.LINE_STYLE[i])
 
-    def set_y_range(self, hist_list, is_logY):
+    def set_y_range(self, hist_list, is_logY, divide_binW=False):
         hist = hist_list[0]
         y_max = max(hist_list, key=lambda x: x.GetMaximum()).GetMaximum()
         y_min = min(hist_list, key=lambda x: x.GetMinimum()).GetMinimum()
@@ -344,8 +344,10 @@ class Ploter:
                 self.pad1.SetLogy()
             else:
                 self.can.SetLogy()
-
-            hist.GetYaxis().SetRangeUser(4E-3, y_max*1e2)
+            if divide_binW:
+              hist.GetYaxis().SetRangeUser(4E-5, y_max*1e2)
+            else:
+              hist.GetYaxis().SetRangeUser(4E-3, y_max*1e2)
         else:
             if y_min < 0:
                 y_min *= 1.1

@@ -75,7 +75,7 @@ class WSReader:
                 this_pdf = None
                 # skip all Gaussian constraints
                 for ipdf in pdf_list:
-                    if "RooGaussian" in ipdf.ClassName():
+                    if "RooGaussian" in ipdf.ClassName() or "RooPoisson" in ipdf.ClassName():
                         continue
                     else:
                         this_pdf = ipdf
@@ -147,7 +147,7 @@ class WSReader:
             self.fix_var(name, float(value))
 
     @staticmethod
-    def translate_binning(hist, cate='ggF'):
+    def translate_binning(hist, cate='ggF', divideBinW=0):
         """
         for 2l2v mainly, where variable binning used
         """
@@ -173,9 +173,15 @@ class WSReader:
           new_hist = ROOT.TH1F(name, name, ( len(dbin)-1), array.array('d',dbin))
           for i in range(len(dbin)-1):
               #print("translate_binning:", hist.GetName(), i, hist.GetBinContent(i+1))
-              new_hist.SetBinContent(i+1, hist.GetBinContent(i+1))
-              new_hist.SetBinError(i+1, hist.GetBinError(i+1))
-              new_hist.SetXTitle("mT")
+              y = hist.GetBinContent(i+1)
+              ye = hist.GetBinError(i+1)
+              if divideBinW:
+                bw = new_hist.GetBinWidth(i+1)
+                y = y/bw
+                ye = ye/bw
+              new_hist.SetBinContent(i+1, y)
+              new_hist.SetBinError(i+1, ye)
+          new_hist.SetXTitle("mT")
          
           return new_hist
 
@@ -195,6 +201,10 @@ class WSReader:
               n_x = (dbin[i] + dbin[i+1])*0.5
               n_ex_dn = n_x - dbin[i]
               n_ex_up = dbin[i+1] - n_x
+              if divideBinW:
+                y = y/ (n_ex_dn+n_ex_up)
+                ey_up = ey_up/ (n_ex_dn+n_ex_up) 
+                ey_dn = ey_dn/ (n_ex_dn+n_ex_up) 
             else:
               if x<0: # underflow
                 n_x = dbin[0] - 1
@@ -202,7 +212,7 @@ class WSReader:
               else: # overlfow
                 n_x = dbin[-1] + 1
                 n_ex_dn, n_ex_up=1, 1
-   
+
             new_hist.SetPoint(i, n_x, y)
             new_hist.SetPointEXhigh(ibin, n_ex_up)
             new_hist.SetPointEXlow(ibin, n_ex_dn)
