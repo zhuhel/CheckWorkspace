@@ -122,7 +122,9 @@ if __name__ == "__main__":
         ovar = oitr()
 
     obs_4l = ws_reader.ws.var("m4l")
-    if obs_4l : redefine_range(obs_4l, args.nBins, args.xMax, args.xMin)
+    if obs_4l : 
+	redefine_range(obs_4l, args.nBins, args.xMax, args.xMin)
+	obs_bin_width = (obs_4l.getMax() - obs_4l.getMin()) / obs_4l.getBins()
     obs_var = ws_reader.mc.GetObservables().first()
 
     # fitting
@@ -304,6 +306,10 @@ if __name__ == "__main__":
         tag_list = [raw_tag_list[idx] for idx in sorted_idx]
 
         hist_data = f_hist.Get("data-{}-{}".format(cat_name, postfix))
+	# correct the error for llvv (when migrating from RooDataHist to RooDataSet)
+	for i in range(hist_data.GetNbinsX()):
+	    #print("before translate_binning:", hist_data.GetName(), i, hist_data.GetBinContent(i+1), hist_data.GetBinError(i+1))
+	    hist_data.SetBinError(i+1, math.sqrt(hist_data.GetBinContent(i+1))) 
         hist_data = ws_reader.translate_binning(hist_data, cat_name, args.divide_binw)
         hist_splusb = f_hist.Get("splusb-{}-{}__{}".format(cat_name, postfix, obs_var.GetName()))
         hist_splusb = ws_reader.translate_binning(hist_splusb, cat_name, args.divide_binw)
@@ -343,14 +349,12 @@ if __name__ == "__main__":
         ps.get_offset(hist_splusb)
         ps.set_y_range([hist_data, hist_splusb], args.logY, args.divide_binw)
         hist_data.SetXTitle(obs_var.GetName())
-        #hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
-        hist_data.SetYTitle("Events")
-        if obs_bin_width==1: ## most likely variable bin size used
-            hist_data.SetYTitle("Events / Bin")
-        else:
-            hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
-        if args.divide_binw:
+        if "llvv" in cat_name and args.divide_binw:
             hist_data.SetYTitle("Events / GeV")
+	elif "llll" in cat_name and obs_bin_width:
+            hist_data.SetYTitle("Events / {:.1f} GeV".format(obs_bin_width))
+	else:
+            hist_data.SetYTitle("Events")
 
         if hist_data:
             legend = ps.get_legend(len(hist_list) + 3)

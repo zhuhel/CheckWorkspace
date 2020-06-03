@@ -152,7 +152,7 @@ class WSReader:
         for 2l2v mainly, where variable binning used
         """
         #TODO: hardcoded binning
-        dbin_ggF_llvv = [0., 50., 100., 150., 200., 250., 300., 350., 400., 450., 500., 550., 600., 650., 700., 750., 800., 850., 900., 950., 1000., 1100., 1200., 1300., 1400., 1600., 1800., 2000.]
+        dbin_ggF_llvv = [0., 50., 100., 150., 200., 250., 300., 350., 400., 450., 500., 550., 600., 650., 700., 750., 800., 850., 900., 950., 1000., 1100., 1200., 1300., 1400., 1600., 1800., 2000., 3000.]
         dbin_VBF_llvv = [0., 100., 420., 540., 820., 1700.]
 
         #TODO: hardcoded category names
@@ -794,11 +794,11 @@ class WSReader:
                                   (y, err) = integral_and_error(hist_sonlypdf)
                                   self.dict_yield[cat_name]["signal"]=[y, err]
 
-                            yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
+                            yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f} (sys.) +/- {:.3f} (stat.)\n".format(func.GetName(), sum_ch, y, err, sqrt(y))
                             total_err = sqrt( pow(total_err, 2) + pow(err, 2) )
                         yield_out_str += "summed yields {:.2f} +/- {:.3f}\n".format(total, total_err)
                         if not is_sum_pdf:
-                            yield_out_str += "total yields {:.2f} +/- {:.3f}\n".format(total2, total_err2)
+                            yield_out_str += "total yields {:.2f} +/- {:.3f} (sys.) +/- {:.3f} (stat.)\n".format(total2, total_err2, sqrt(total2))
                             print("Check total error: total={}, total_err={}, total2={}, total_err2={}".format(total, total_err, total2, total_err2))
                     else:
                         print("no baseline pdf avaiable!")
@@ -833,9 +833,9 @@ class WSReader:
                           (y, err) = integral_and_error(histogram)
                           self.dict_yield[cat_name][simple_name]=[y, err]
 
-                    yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f}\n".format(func.GetName(), sum_ch, y, err)
+                    yield_out_str += "{} {:.2f} {:.2f} +/- {:.3f} (sys.) +/- {:.3f} (stat.)\n".format(func.GetName(), sum_ch, y, err, sqrt(y))
                     total_err = sqrt( pow(total_err, 2) + pow(err, 2) )
-                yield_out_str += "total yields {:.2f} +/- {:.3f}\n".format(total, total_err)
+                yield_out_str += "total yields {:.2f} +/- {:.3f} (sys.) +/- {:.3f} (stat.)\n".format(total2, total_err2, sqrt(total2))
             else:
                 print(pdf.ClassName()," should be either RooProdPdf or RooAddPdf")
             self.poi.setVal(old_poi_val)

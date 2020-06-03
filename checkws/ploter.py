@@ -377,7 +377,7 @@ class Ploter:
 
 	    if y_min==0: y_min = max(hist_list, key=lambda x: x.GetMinimum()).GetMinimum()
 	    if y_min==0: 
-	        hist.GetYaxis().SetRangeUser(1E-2, y_max*1e2)
+	        hist.GetYaxis().SetRangeUser(1E-5, y_max*1e2)
 	    else:
 	        hist.GetYaxis().SetRangeUser(y_min, y_max*1e2)
             #if divide_binW:
